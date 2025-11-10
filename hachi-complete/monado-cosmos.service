@@ -1,0 +1,26 @@
+[Unit]
+Description=Monado OpenXR Service for HTC Vive Cosmos
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/monado-service
+Restart=on-failure
+RestartSec=5
+Environment="XR_RUNTIME_JSON=/usr/share/openxr/1/openxr_monado.json"
+Environment="MONADO_LOG=info"
+
+# User service - runs as the logged-in user
+User=%u
+
+# Resource limits
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+
+# Security settings (adjust as needed)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
