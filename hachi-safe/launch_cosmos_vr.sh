@@ -1,10 +1,12 @@
 #!/bin/bash
 
-# Quick VR Launch Script for HTC Vive Cosmos on Bazzite Linux
+# Quick VR Launch Script for HTC Vive Cosmos on Linux
 
 # Set environment variables for VR
 export XR_RUNTIME_JSON=/usr/share/openxr/1/openxr_monado.json
-export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/radeon_icd.x86_64.json
+
+# MODIFIED: Added Intel ICD path
+export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/radeon_icd.x86_64.json:/usr/share/vulkan/icd.d/intel_icd.x86_64.json
 
 echo "Starting HTC Vive Cosmos VR Session..."
 echo "======================================="

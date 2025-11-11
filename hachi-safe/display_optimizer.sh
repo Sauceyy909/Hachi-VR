@@ -27,6 +27,9 @@ detect_gpu() {
     elif lspci | grep -i amd > /dev/null; then
         GPU_VENDOR="amd"
         echo -e "${GREEN}✓ AMD GPU detected${NC}"
+    elif lspci | grep -i intel > /dev/null; then
+        GPU_VENDOR="intel"
+        echo -e "${BLUE}✓ Intel GPU detected${NC}"
     else
         GPU_VENDOR="unknown"
         echo -e "${RED}✗ Could not detect GPU vendor${NC}"
@@ -63,8 +66,8 @@ optimize_nvidia() {
     # Check if nvidia-settings is available
     if ! command -v nvidia-settings &> /dev/null; then
         echo -e "${YELLOW}⚠ nvidia-settings not found. Installing...${NC}"
-        rpm-ostree install --assumeyes --allow-inactive nvidia-settings || true
-        echo -e "  Please reboot after installation completes"
+        sudo apt-get install -y nvidia-settings || true
+        echo -e "  Please re-run this script after installation completes"
         return
     fi
     
@@ -150,6 +153,18 @@ EOF
     echo -e "    ${GREEN}✓ Created $XORG_CONFIG${NC}"
 }
 
+# Optimize Intel settings
+optimize_intel() {
+    echo -e "\n${YELLOW}Optimizing Intel settings...${NC}"
+    echo "  Intel GPUs on Linux use the MESA driver."
+    echo "  Performance is generally 'out-of-the-box'."
+    echo "  Key optimizations:"
+    echo "  1. Ensure 'vulkan-intel' is installed."
+    echo "  2. Ensure you are using a modern kernel and MESA drivers."
+    echo "  No specific driver-level tweaks (like nvidia-settings) are applied."
+    echo -e "${GREEN}✓ Intel configuration noted.${NC}"
+}
+
 # Optimize SteamVR settings
 optimize_steamvr() {
     echo -e "\n${YELLOW}Optimizing SteamVR settings...${NC}"
@@ -221,7 +236,7 @@ optimize_cpu() {
         echo -e "${GREEN}✓ CPU governor set to performance${NC}"
     else
         echo -e "${YELLOW}⚠ Could not set CPU governor${NC}"
-        echo "  You may need to install cpupower: rpm-ostree install kernel-tools"
+        echo "  You may need to install: sudo apt-get install linux-tools-common"
     fi
 }
 
@@ -289,6 +304,9 @@ while true; do
     elif command -v radeontop &> /dev/null; then
         echo "--- AMD GPU ---"
         radeontop -d - -l 1 | head -1
+    elif command -v intel_gpu_top &> /dev/null; then
+        echo "--- Intel GPU ---"
+        intel_gpu_top -l -o - | head -n 4
     fi
     
     echo ""
@@ -356,6 +374,9 @@ run_all_optimizations() {
         amd)
             optimize_amd
             ;;
+        intel)
+            optimize_intel
+            ;;
         *)
             echo -e "${YELLOW}⚠ Unknown GPU, skipping GPU-specific optimizations${NC}"
             ;;
@@ -406,7 +427,7 @@ if [ "$1" = "--auto" ]; then
     exit 0
 fi
 
-while true; do
+while true; do.
     show_menu
     read -p "Enter choice: " choice
     
@@ -420,6 +441,7 @@ while true; do
             case $GPU_VENDOR in
                 nvidia) optimize_nvidia ;;
                 amd) optimize_amd ;;
+                intel) optimize_intel ;;
                 *) echo "Unknown GPU vendor" ;;
             esac
             ;;

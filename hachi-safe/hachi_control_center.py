@@ -91,6 +91,8 @@ class HachiControlCenter:
                     self.gpu_vendor = 'nvidia'
                 elif 'amd' in result.stdout.lower():
                     self.gpu_vendor = 'amd'
+                elif 'intel' in result.stdout.lower():
+                    self.gpu_vendor = 'intel'
                 else:
                     self.gpu_vendor = 'unknown'
             except:
@@ -133,15 +135,19 @@ class HachiControlCenter:
             })
             self.gpu_name = "AMD GPU"
         else:
+            # Default to Intel Blue for Intel or Unknown
             self.colors.update({
-                'accent': '#0066cc',
-                'accent_hover': '#0077ee',
-                'accent_dark': '#0055aa',
-                'status_good': '#00cc00',
+                'accent': '#0071c5', # Intel Blue
+                'accent_hover': '#0084e8',
+                'accent_dark': '#005a9e',
+                'status_good': '#0071c5',
                 'status_warning': '#ffa500',
                 'status_error': '#ff3333',
             })
-            self.gpu_name = "Unknown GPU"
+            if self.gpu_vendor == 'intel':
+                self.gpu_name = "Intel GPU"
+            else:
+                self.gpu_name = "Unknown GPU"
         
         # Configure ttk style
         style = ttk.Style()
@@ -1054,7 +1060,7 @@ Features:
 • GPU-optimized performance
 • Real-time monitoring
 
-Created for Bazzite Linux
+Created for Linux
 """
         messagebox.showinfo("About HACHI", about_text)
 
