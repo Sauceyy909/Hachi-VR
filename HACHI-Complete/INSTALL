@@ -64,10 +64,17 @@ fi
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+HOME_DIR="$HOME"
+HACHI_DIR="$HOME_DIR/.local/share/hachi"
+BIN_DIR="$HOME_DIR/.local/bin"
+DRIVER_DIR="$HOME_DIR/.local/share/Steam/steamapps/common/SteamVR/drivers/vive_cosmos"
+BUILD_DIR="$SCRIPT_DIR/build"
+DESKTOP_DIR="$HOME_DIR/.local/share/applications"
+
 # Detect Linux distribution
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[1/11] Detecting Linux distribution...${NC}"
+echo -e "${CYAN}[1/12] Detecting Linux distribution...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 DISTRO="unknown"
@@ -111,7 +118,7 @@ fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[2/11] Checking required commands...${NC}"
+echo -e "${CYAN}[2/12] Checking required commands...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 MISSING=0
@@ -126,7 +133,7 @@ done
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[3/11] Updating package database...${NC}"
+echo -e "${CYAN}[3/12] Updating package database...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${YELLOW}  You may need to enter your password${NC}"
 
@@ -138,7 +145,7 @@ fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[4/11] Installing system packages...${NC}"
+echo -e "${CYAN}[4/12] Installing system packages...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${YELLOW}  This may take a few minutes...${NC}"
 
@@ -186,7 +193,7 @@ fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[5/11] Ensuring pip3 is available...${NC}"
+echo -e "${CYAN}[5/12] Ensuring pip3 is available...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Make sure pip3 is available
@@ -214,7 +221,7 @@ python3 -m pip install --user --upgrade pip &> /dev/null || true
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[6/11] Installing Python packages...${NC}"
+echo -e "${CYAN}[6/12] Installing Python packages...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Install Python packages
@@ -230,15 +237,25 @@ echo -e "${GREEN}  ✓ Python packages installed${NC}"
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[7/11] Creating directories...${NC}"
+echo -e "${CYAN}[7/12] Removing previous HACHI installation...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-HOME_DIR="$HOME"
-HACHI_DIR="$HOME_DIR/.local/share/hachi"
-BIN_DIR="$HOME_DIR/.local/bin"
-DRIVER_DIR="$HOME_DIR/.local/share/Steam/steamapps/common/SteamVR/drivers/vive_cosmos"
-BUILD_DIR="$SCRIPT_DIR/build"
-DESKTOP_DIR="$HOME_DIR/.local/share/applications"
+if [ -d "$HACHI_DIR" ] || [ -f "$BIN_DIR/hachi" ] || [ -d "$DRIVER_DIR" ]; then
+    echo -e "${YELLOW}  ! Previous installation detected${NC}"
+    rm -rf "$HACHI_DIR"
+    rm -f "$BIN_DIR/hachi"
+    rm -rf "$DRIVER_DIR"
+    rm -f "$DESKTOP_DIR/hachi-control.desktop"
+    rm -rf "$BUILD_DIR"
+    echo -e "${GREEN}  ✓ Removed old files${NC}"
+else
+    echo -e "${GREEN}  ✓ No existing installation found${NC}"
+fi
+
+echo ""
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}[8/12] Creating directories...${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 mkdir -p "$HACHI_DIR"
 mkdir -p "$BIN_DIR"
@@ -253,7 +270,7 @@ echo -e "${GREEN}  ✓ Created: $BUILD_DIR${NC}"
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[8/11] Building VR driver from source...${NC}"
+echo -e "${CYAN}[9/12] Building VR driver from source...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${YELLOW}  This may take a few minutes...${NC}"
 
@@ -402,7 +419,7 @@ fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[9/11] Installing finger tracking module...${NC}"
+echo -e "${CYAN}[10/12] Installing finger tracking module...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 if [ -f "finger_tracking.py" ]; then
@@ -418,7 +435,7 @@ fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[10/11] Installing HACHI Control Center...${NC}"
+echo -e "${CYAN}[11/12] Installing HACHI Control Center...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 if [ -f "hachi_control.py" ]; then
@@ -456,7 +473,7 @@ echo -e "${GREEN}  ✓ Desktop shortcut created${NC}"
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[11/11] Installing VR driver files...${NC}"
+echo -e "${CYAN}[12/12] Installing VR driver files...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Copy driver manifest and settings
@@ -511,10 +528,10 @@ echo -e "${GREEN}║                                                            
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${YELLOW}║  ⚠️  IMPORTANT: YOU MUST LOG OUT AND LOG BACK IN! ⚠️        ║${NC}"
+echo -e "${YELLOW}║  ⚠️  IMPORTANT: A SYSTEM REBOOT IS REQUIRED! ⚠️            ║${NC}"
 echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "${CYAN}This is required for USB permissions to take effect.${NC}"
+echo -e "${CYAN}Rebooting ensures USB permissions and drivers reload correctly.${NC}"
 echo ""
 echo -e "${GREEN}What was installed:${NC}"
 echo -e "  ${CYAN}✓${NC} Vive Cosmos SteamVR Driver (C++ with USB bridge)"
@@ -523,7 +540,7 @@ echo -e "  ${CYAN}✓${NC} HACHI Control Center GUI"
 echo -e "  ${CYAN}✓${NC} All Dependencies & Libraries"
 echo -e "  ${CYAN}✓${NC} USB Permissions"
 echo ""
-echo -e "${GREEN}After logging back in:${NC}"
+echo -e "${GREEN}After rebooting:${NC}"
 echo -e "  ${MAGENTA}1.${NC} Find ${YELLOW}'HACHI Control Center'${NC} in your applications menu"
 echo -e "  ${MAGENTA}2.${NC} Or run: ${YELLOW}hachi${NC}"
 echo -e "  ${MAGENTA}3.${NC} Connect your VR headset"
@@ -546,8 +563,15 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${GREEN}         Thank you for using HACHI VR! 🚀${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-read -p "Press ENTER to finish..."
+read -p "Press ENTER to continue..."
 
 echo ""
-echo -e "${YELLOW}Remember to LOG OUT and LOG BACK IN!${NC}"
+read -r -p "Would you like to reboot now to finalize the installation? [y/N]: " REBOOT_CHOICE
+if [[ $REBOOT_CHOICE =~ ^[Yy]$ ]]; then
+    echo -e "${CYAN}Requesting system reboot...${NC}"
+    $SUDO_CMD reboot || echo -e "${YELLOW}  ! Reboot command failed. Please reboot manually.${NC}"
+else
+    echo -e "${YELLOW}Please reboot your system manually to complete the installation.${NC}"
+fi
+
 echo ""

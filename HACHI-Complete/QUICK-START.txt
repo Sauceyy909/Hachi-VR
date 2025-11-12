@@ -23,7 +23,7 @@
   1. chmod +x HACHI-INSTALLER.sh
   2. ./HACHI-INSTALLER.sh
   3. Enter password when prompted
-  4. Log out and back in
+  4. Reboot your PC
   5. Run: hachi
 
 DONE! That's it!
@@ -208,7 +208,7 @@ Finger tracking not starting?
   → Check camera connection
 
 Permissions issues?
-  → Log out and back in!
+  → Reboot your PC!
   → Check: groups (should show "plugdev")
 
 📚 DOCUMENTATION

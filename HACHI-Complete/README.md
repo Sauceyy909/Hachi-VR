@@ -54,6 +54,8 @@ chmod +x HACHI-INSTALLER.sh
 
 ### 3. **HACHI Control Center**
 - ✅ Beautiful GPU-adaptive UI (NVIDIA green, AMD red, Intel blue)
+- ✅ Triple-black visual design inspired by the NVIDIA Control Panel
+- ✅ Displays the exact detected GPU model right in the header
 - ✅ Real-time VR headset detection
 - ✅ Driver status monitoring
 - ✅ SteamVR launch integration
@@ -85,15 +87,17 @@ HACHI-Complete/
 The installer automatically does:
 
 1. ✅ Checks your system
-2. ✅ Installs system packages (apt-get)
+2. ✅ Installs system packages (pacman/apt)
 3. ✅ Installs Python packages (pip)
-4. ✅ Creates directory structure
-5. ✅ Installs finger tracking module
-6. ✅ Installs control center
-7. ✅ Installs VR driver
-8. ✅ Configures USB permissions
-9. ✅ Creates desktop shortcut
-10. ✅ Sets up everything perfectly!
+4. ✅ Removes any previous HACHI installation automatically
+5. ✅ Creates a fresh directory structure
+6. ✅ Builds the Vive Cosmos driver from source
+7. ✅ Installs the finger tracking module
+8. ✅ Installs the HACHI Control Center command
+9. ✅ Adds shortcuts and updates your PATH
+10. ✅ Installs SteamVR driver manifests and resources
+11. ✅ Configures USB permissions and user groups
+12. ✅ Prompts you to reboot so everything loads cleanly
 
 **Time:** 5-10 minutes  
 **User input required:** Your password (for sudo)
@@ -110,7 +114,7 @@ The installer automatically does:
 
 ### Launching HACHI
 
-After logging out and back in:
+After rebooting:
 
 ```bash
 # Method 1: From applications menu
