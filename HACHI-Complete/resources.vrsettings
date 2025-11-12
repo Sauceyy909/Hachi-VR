@@ -1,0 +1,13 @@
+{
+  "driver_cosmos": {
+    "enable": true,
+    "blocked_by_safe_mode": false,
+    "tracking_universe": "standing",
+    "display_frequency": 90.0,
+    "resolution_width": 1440,
+    "resolution_height": 1700,
+    "ipd": 0.063,
+    "seconds_from_vsync_to_photons": 0.011,
+    "display_debug_mode": false
+  }
+}

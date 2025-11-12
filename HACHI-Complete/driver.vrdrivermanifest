@@ -1,0 +1,11 @@
+{
+  "alwaysActivate": true,
+  "name": "vive_cosmos",
+  "directory": "",
+  "resourceOnly": false,
+  "hmd_presence": [
+    "HTC-Cosmos",
+    "HTC Cosmos",
+    "*PID0ABB*"
+  ]
+}
