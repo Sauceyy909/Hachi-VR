@@ -31,7 +31,11 @@ cosmos_bridge --monitor  # Continuous polling until interrupted
 
 The installer compiles this helper automatically (after installing build and
 libusb dependencies) and places the binary under
-`~/.local/share/hachi/driver/cosmos_bridge` alongside this README.
+`~/.local/share/hachi/driver/cosmos_bridge` alongside this README. It also
+installs `/etc/udev/rules.d/60-hachi-vr.rules` covering **every Vive Cosmos
+USB identifier we have seen (0x0300–0x0410 plus HTC's legacy 0x0ABB link box)**,
+so reconnecting the headset—or simply rebooting after installation—grants the
+helper access without manual rule tweaking.
 
 ## SteamVR Integration
 

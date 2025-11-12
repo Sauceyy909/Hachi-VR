@@ -508,19 +508,27 @@ fi
 # Setup USB permissions
 echo -e "${YELLOW}  Setting up USB permissions...${NC}"
 
+COSMOS_USB_IDS=(
+    0309 030A 030B 0313 0316 0317 0320
+    0400 0401 0402 0403 0404 0405 0406 0407 0408 0409 040A 040B 040C 040D 040E 040F 0410
+    0ABB
+)
+
 RULES_FILE="/tmp/60-hachi-vr.rules"
-cat > "$RULES_FILE" << 'UDEV_EOF'
-# HTC Vive Cosmos
-SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="0abb", MODE="0666", GROUP="plugdev"
-SUBSYSTEM=="usb", ATTR{idVendor}=="28de", MODE="0666", GROUP="plugdev"
-
-# HID devices
-KERNEL=="hidraw*", ATTRS{idVendor}=="0bb4", MODE="0666", GROUP="plugdev"
-KERNEL=="hidraw*", ATTRS{idVendor}=="28de", MODE="0666", GROUP="plugdev"
-
-# Video devices (for finger tracking)
-KERNEL=="video[0-9]*", MODE="0666", GROUP="video"
-UDEV_EOF
+{
+    echo "# HTC Vive Cosmos family"
+    for product in "${COSMOS_USB_IDS[@]}"; do
+        printf 'SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="%s", MODE="0666", GROUP="plugdev"\n' "$product"
+    done
+    echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="28de", MODE="0666", GROUP="plugdev"'
+    echo ""
+    echo "# HID devices"
+    echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0bb4", MODE="0666", GROUP="plugdev"'
+    echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="28de", MODE="0666", GROUP="plugdev"'
+    echo ""
+    echo "# Video devices (for finger tracking)"
+    echo 'KERNEL=="video[0-9]*", MODE="0666", GROUP="video"'
+} > "$RULES_FILE"
 
 $SUDO_CMD cp "$RULES_FILE" /etc/udev/rules.d/60-hachi-vr.rules
 $SUDO_CMD udevadm control --reload-rules

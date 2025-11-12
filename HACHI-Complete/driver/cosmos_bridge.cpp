@@ -26,6 +26,7 @@ const Candidate kCandidates[] = {
     {0x0bb4, 0x0309, "HTC Vive Cosmos"},
     {0x0bb4, 0x030A, "HTC Vive Cosmos"},
     {0x0bb4, 0x030B, "HTC Vive Cosmos"},
+    {0x0bb4, 0x0313, "HTC Vive Cosmos"},
     {0x0bb4, 0x0316, "HTC Vive Cosmos Elite"},
     {0x0bb4, 0x0317, "HTC Vive Cosmos External"},
     {0x0bb4, 0x0320, "HTC Vive Cosmos"},
@@ -210,8 +211,8 @@ ProbeResult probe_headset(libusb_context* ctx, bool attempt_open) {
             if (open_status == LIBUSB_ERROR_ACCESS) {
                 result.permission_denied = true;
                 result.message =
-                    "Headset detected, but USB permissions blocked access."
-                    " Add udev rules or run the installer again.";
+                    "Headset detected, but USB permissions blocked access. "
+                    "Reload /etc/udev/rules.d/60-hachi-vr.rules or run the installer again.";
             } else if (open_status == LIBUSB_SUCCESS && handle != nullptr) {
                 unsigned char product[256];
                 if (desc.iProduct != 0) {

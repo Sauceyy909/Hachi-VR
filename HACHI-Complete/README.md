@@ -308,6 +308,17 @@ If installation fails:
 
 ### Runtime Issues
 
+#### Headset not detected / permission denied
+
+If the Control Center shows **"USB permissions blocked"** or the `cosmos_bridge` helper exits with code `3`, reload the new udev rules:
+
+```bash
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+The installer now drops `/etc/udev/rules.d/60-hachi-vr.rules` with **all known Vive Cosmos USB IDs (0x0300-0x0410 range, including 0x0313)** so re-running `./INSTALL` (or rebooting after the reload) clears the permission error without manual edits.
+
 Check logs:
 ```bash
 # View HACHI logs

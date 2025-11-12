@@ -1272,7 +1272,7 @@ echo "Run: hachi"
                 if message:
                     info.append(f"Message: {message}")
                 if driver_data.get('permission_denied'):
-                    info.append("USB Access: permission denied (udev rule required)")
+                    info.append("USB Access: permission denied (reload /etc/udev/rules.d/60-hachi-vr.rules or rerun installer)")
             info.append(f"Probe Exit Code: {driver_data.get('return_code')}")
             if driver_data.get('stderr'):
                 info.append(f"Probe stderr: {driver_data.get('stderr')}")
