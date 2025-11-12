@@ -10,14 +10,16 @@ machine-readable status check that the Control Center can display.
 
 `cosmos_bridge` is a C++17 program built against `libusb-1.0`. It scans the USB
 bus for well-known vendor/product identifiers associated with the Vive Cosmos
-family and reports the result either as human-readable text or JSON. Exit codes:
+family—including newly observed headset and link-box ranges—and reports the
+result either as human-readable text or JSON. Exit codes:
 
-| Code | Meaning                          |
-| ---- | -------------------------------- |
-| 0    | Headset detected and accessible  |
-| 2    | Headset not detected             |
-| 3    | Detected but access denied       |
-| 1    | Other error                      |
+| Code | Meaning                                     |
+| ---- | ------------------------------------------- |
+| 0    | Headset detected and accessible             |
+| 2    | Headset not detected                        |
+| 3    | Detected but access denied                  |
+| 4    | HTC USB device detected (needs verification) |
+| 1    | Other error                                 |
 
 Useful arguments:
 

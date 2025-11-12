@@ -1057,19 +1057,17 @@ echo "Run: hachi"
         """Monitor VR system status"""
         while True:
             try:
+                helper_info = self.query_custom_driver_info()
+                self.custom_driver_info = helper_info
+
                 # Check headset connection
-                self.headset_connected = self.check_headset_connected()
+                self.headset_connected = self.check_headset_connected(helper_info)
                 display_state, display_details = self.check_display_cable_connected()
                 self.display_cable_connected = display_state
                 self.display_connection_details = display_details
 
                 # Check driver
                 self.driver_installed = self.check_driver_installed()
-
-                if self.driver_origin == "hachi-cosmos":
-                    self.custom_driver_info = self.query_custom_driver_info()
-                else:
-                    self.custom_driver_info = None
 
                 # Check SteamVR
                 self.steamvr_running = self.check_steamvr_running()
@@ -1083,16 +1081,25 @@ echo "Run: hachi"
 
             except Exception as e:
                 print(f"Monitor error: {e}")
-            
+
             time.sleep(2)
     
-    def check_headset_connected(self):
+    def check_headset_connected(self, helper_info=None):
         """Check if VR headset is connected"""
+        if isinstance(helper_info, dict):
+            present = helper_info.get('present')
+            if isinstance(present, bool):
+                return present
+
         try:
             result = subprocess.run(['lsusb'], capture_output=True, text=True)
-            # HTC Vive Cosmos vendor:product IDs
-            return '0bb4:0abb' in result.stdout or '28de:' in result.stdout
-        except:
+            output = result.stdout.lower()
+            if '0bb4:' in output:
+                return True
+            if 'vive' in output or 'htc' in output:
+                return True
+            return False
+        except Exception:
             return False
 
     def check_display_cable_connected(self):
@@ -1233,7 +1240,7 @@ echo "Run: hachi"
             info.append(f"\n=== DISPLAY LINKS ===")
             info.extend(self.display_connection_details)
 
-        if self.driver_origin == "hachi-cosmos" and self.custom_driver_info:
+        if self.custom_driver_info:
             info.append(f"\n=== COSMOS BRIDGE ===")
             driver_data = self.custom_driver_info
             if driver_data.get('error'):
@@ -1256,6 +1263,11 @@ echo "Run: hachi"
                 port_path = driver_data.get('port_path')
                 if port_path:
                     info.append(f"Port Path: {port_path}")
+                detection = driver_data.get('detection')
+                if detection:
+                    info.append(f"Detection Method: {detection}")
+                if driver_data.get('vendor_match') and not driver_data.get('present'):
+                    info.append("Detection Note: HTC USB device detected but Cosmos signature not confirmed")
                 message = driver_data.get('message')
                 if message:
                     info.append(f"Message: {message}")

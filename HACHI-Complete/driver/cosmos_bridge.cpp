@@ -12,6 +12,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <cctype>
 
 namespace {
 
@@ -23,10 +24,31 @@ struct Candidate {
 
 const Candidate kCandidates[] = {
     {0x0bb4, 0x0309, "HTC Vive Cosmos"},
+    {0x0bb4, 0x030A, "HTC Vive Cosmos"},
+    {0x0bb4, 0x030B, "HTC Vive Cosmos"},
     {0x0bb4, 0x0316, "HTC Vive Cosmos Elite"},
     {0x0bb4, 0x0317, "HTC Vive Cosmos External"},
+    {0x0bb4, 0x0320, "HTC Vive Cosmos"},
     {0x0bb4, 0x0400, "HTC Vive Link Box"},
+    {0x0bb4, 0x0401, "HTC Vive Link Box"},
+    {0x0bb4, 0x0402, "HTC Vive Link Box"},
+    {0x0bb4, 0x0403, "HTC Vive Link Box"},
+    {0x0bb4, 0x0404, "HTC Vive Link Box"},
+    {0x0bb4, 0x0405, "HTC Vive Link Box"},
+    {0x0bb4, 0x0406, "HTC Vive Link Box"},
+    {0x0bb4, 0x0407, "HTC Vive Link Box"},
+    {0x0bb4, 0x0408, "HTC Vive Link Box"},
+    {0x0bb4, 0x0409, "HTC Vive Link Box"},
+    {0x0bb4, 0x040A, "HTC Vive Link Box"},
+    {0x0bb4, 0x040B, "HTC Vive Link Box"},
+    {0x0bb4, 0x040C, "HTC Vive Link Box"},
+    {0x0bb4, 0x040D, "HTC Vive Link Box"},
+    {0x0bb4, 0x040E, "HTC Vive Link Box"},
+    {0x0bb4, 0x040F, "HTC Vive Link Box"},
+    {0x0bb4, 0x0410, "HTC Vive Link Box"},
 };
+
+constexpr uint16_t kVendorHtc = 0x0bb4;
 
 volatile std::sig_atomic_t g_should_exit = 0;
 
@@ -97,16 +119,33 @@ struct ProbeResult {
     bool found = false;
     bool permission_denied = false;
     bool open_attempted = false;
+    bool vendor_match = false;
     uint16_t vendor_id = 0;
     uint16_t product_id = 0;
     std::string label;
     std::string product_string;
+    std::string detection_method;
     uint8_t bus = 0;
     uint8_t address = 0;
     std::vector<uint8_t> ports;
     std::string message;
     std::string error;
 };
+
+std::string to_lower(const std::string& value) {
+    std::string lowered;
+    lowered.reserve(value.size());
+    for (unsigned char ch : value) {
+        lowered.push_back(static_cast<char>(std::tolower(ch)));
+    }
+    return lowered;
+}
+
+bool id_in_cosmos_range(uint16_t product) {
+    // Cosmos HMDs ship in the 0x0300 range, link boxes in 0x0400.
+    return (product >= 0x0300 && product <= 0x03FF) ||
+           (product >= 0x0400 && product <= 0x04FF);
+}
 
 ProbeResult probe_headset(libusb_context* ctx, bool attempt_open) {
     ProbeResult result;
@@ -125,57 +164,103 @@ ProbeResult probe_headset(libusb_context* ctx, bool attempt_open) {
             continue;
         }
 
+        if (desc.idVendor != kVendorHtc) {
+            continue;
+        }
+
+        result.vendor_match = true;
+        result.vendor_id = desc.idVendor;
+        result.product_id = desc.idProduct;
+        result.bus = libusb_get_bus_number(device);
+        result.address = libusb_get_device_address(device);
+
+        const Candidate* matched_candidate = nullptr;
         for (const auto& candidate : kCandidates) {
-            if (desc.idVendor == candidate.vendor_id &&
-                desc.idProduct == candidate.product_id) {
-                result.found = true;
-                result.vendor_id = desc.idVendor;
-                result.product_id = desc.idProduct;
-                result.label = candidate.label;
-                result.bus = libusb_get_bus_number(device);
-                result.address = libusb_get_device_address(device);
-
-                std::vector<uint8_t> buffer(8);
-                const int port_count = libusb_get_port_numbers(
-                    device, buffer.data(), static_cast<int>(buffer.size()));
-                if (port_count > 0) {
-                    result.ports.assign(buffer.begin(), buffer.begin() + port_count);
-                }
-
-                if (attempt_open) {
-                    libusb_device_handle* handle = nullptr;
-                    const int open_status = libusb_open(device, &handle);
-                    result.open_attempted = true;
-                    if (open_status == LIBUSB_ERROR_ACCESS) {
-                        result.permission_denied = true;
-                        result.message =
-                            "Headset detected, but USB permissions blocked access."
-                            " Add udev rules or run the installer again.";
-                    } else if (open_status == LIBUSB_SUCCESS && handle != nullptr) {
-                        unsigned char product[256];
-                        if (desc.iProduct != 0) {
-                            const int len = libusb_get_string_descriptor_ascii(
-                                handle, desc.iProduct, product,
-                                static_cast<int>(sizeof(product)));
-                            if (len > 0) {
-                                result.product_string =
-                                    std::string(reinterpret_cast<char*>(product), len);
-                            }
-                        }
-                        libusb_close(handle);
-                        result.message =
-                            "Headset detected and accessible over USB.";
-                    } else if (open_status != LIBUSB_SUCCESS) {
-                        result.message = "Headset detected, but could not be opened: ";
-                        result.message += libusb_error_name(open_status);
-                    }
-                } else {
-                    result.message =
-                        "Headset detected. USB open skipped at caller request.";
-                }
-
+            if (candidate.vendor_id == desc.idVendor &&
+                candidate.product_id == desc.idProduct) {
+                matched_candidate = &candidate;
                 break;
             }
+        }
+
+        bool cosmos_like = false;
+        if (matched_candidate != nullptr) {
+            cosmos_like = true;
+            result.label = matched_candidate->label;
+            result.detection_method = "product-id";
+        } else if (id_in_cosmos_range(desc.idProduct)) {
+            cosmos_like = true;
+            result.label = "HTC Vive Cosmos (unlisted variant)";
+            result.detection_method = "cosmos-range";
+        } else {
+            result.label = "HTC USB device";
+        }
+
+        std::vector<uint8_t> buffer(8);
+        const int port_count = libusb_get_port_numbers(
+            device, buffer.data(), static_cast<int>(buffer.size()));
+        if (port_count > 0) {
+            result.ports.assign(buffer.begin(), buffer.begin() + port_count);
+        }
+
+        if (attempt_open) {
+            libusb_device_handle* handle = nullptr;
+            const int open_status = libusb_open(device, &handle);
+            result.open_attempted = true;
+            if (open_status == LIBUSB_ERROR_ACCESS) {
+                result.permission_denied = true;
+                result.message =
+                    "Headset detected, but USB permissions blocked access."
+                    " Add udev rules or run the installer again.";
+            } else if (open_status == LIBUSB_SUCCESS && handle != nullptr) {
+                unsigned char product[256];
+                if (desc.iProduct != 0) {
+                    const int len = libusb_get_string_descriptor_ascii(
+                        handle, desc.iProduct, product,
+                        static_cast<int>(sizeof(product)));
+                    if (len > 0) {
+                        result.product_string =
+                            std::string(reinterpret_cast<char*>(product), len);
+                        const std::string lowered = to_lower(result.product_string);
+                        if (!cosmos_like && lowered.find("cosmos") != std::string::npos) {
+                            cosmos_like = true;
+                            result.label = result.product_string;
+                            result.detection_method = result.detection_method.empty()
+                                ? "product-string"
+                                : result.detection_method + "+product-string";
+                        } else if (!cosmos_like && lowered.find("vive") != std::string::npos) {
+                            cosmos_like = true;
+                            result.label = result.product_string;
+                            result.detection_method = result.detection_method.empty()
+                                ? "product-string"
+                                : result.detection_method + "+product-string";
+                        }
+                    }
+                }
+                libusb_close(handle);
+                if (result.message.empty()) {
+                    result.message = "Headset detected and accessible over USB.";
+                }
+            } else if (open_status != LIBUSB_SUCCESS) {
+                result.message = "Headset detected, but could not be opened: ";
+                result.message += libusb_error_name(open_status);
+            }
+        } else if (cosmos_like) {
+            result.message =
+                "Headset detected. USB open skipped at caller request.";
+        }
+
+        result.found = cosmos_like;
+
+        if (!result.found) {
+            if (result.message.empty()) {
+                result.message =
+                    "HTC USB device detected, but not recognised as Vive Cosmos.";
+            }
+        }
+
+        if (result.found || result.permission_denied) {
+            break;
         }
     }
 
@@ -217,10 +302,13 @@ int render_json(const ProbeResult& probe, int exit_code) {
         std::cout << "\"label\":\"" << escape_json(probe.label) << "\",";
         std::cout << "\"product_string\":\""
                   << escape_json(probe.product_string) << "\",";
+        std::cout << "\"detection\":\""
+                  << escape_json(probe.detection_method) << "\",";
     } else {
         std::cout << "\"vendor_id\":null,\"product_id\":null,\"bus\":null,\"address\":null,"
-                  << "\"port_path\":\"\",\"label\":\"\",\"product_string\":\"\",";
+                  << "\"port_path\":\"\",\"label\":\"\",\"product_string\":\"\",\"detection\":\"\",";
     }
+    std::cout << "\"vendor_match\":" << (probe.vendor_match ? "true" : "false") << ',';
     std::cout << "\"message\":\"" << escape_json(probe.message) << "\",";
     std::cout << "\"error\":\"" << escape_json(probe.error) << "\",";
     std::cout << "\"return_code\":" << exit_code << '}';
@@ -243,6 +331,9 @@ void render_human(const ProbeResult& probe) {
         if (!probe.product_string.empty()) {
             std::cout << "    USB Product String: " << probe.product_string << std::endl;
         }
+        if (!probe.detection_method.empty()) {
+            std::cout << "    Detection Method: " << probe.detection_method << std::endl;
+        }
         std::cout << "    Bus: " << static_cast<int>(probe.bus)
                   << "  Address: " << static_cast<int>(probe.address) << std::endl;
         if (!probe.ports.empty()) {
@@ -259,7 +350,7 @@ int classify_exit_code(const ProbeResult& probe) {
         return 1;
     }
     if (!probe.found) {
-        return 2;
+        return probe.vendor_match ? 4 : 2;
     }
     if (probe.permission_denied) {
         return 3;

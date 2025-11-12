@@ -41,6 +41,7 @@ chmod +x HACHI-INSTALLER.sh
 - ✅ Compiles a local `cosmos_bridge` USB probe against libusb
 - ✅ Installs the helper to `~/.local/share/hachi/driver/cosmos_bridge`
 - ✅ Surfaces probe results (USB IDs, bus, access errors) directly in the Control Center
+- ✅ Recognises additional Vive Cosmos USB IDs (including new link-box variants)
 - ⚠️ Does not replace Valve's runtime driver—SteamVR is still required for headset streaming
 
 ### 2. **SteamVR Driver Snapshot**

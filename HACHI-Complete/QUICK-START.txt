@@ -102,6 +102,7 @@ VR DRIVER:
   • Compiles the local `cosmos_bridge` USB helper for connectivity checks
   • Installs the helper under ~/.local/share/hachi/driver/cosmos_bridge
   • Reports USB IDs, port path, and permission issues in the Control Center
+  • Recognises additional Vive Cosmos headset/link-box USB identifiers
   • Detects Valve's SteamVR Vive Cosmos driver when it exists (no files modified)
   • Records both helper and SteamVR paths in driver_status.json
   • Prompts you to launch/validate SteamVR if Valve's driver is still missing
