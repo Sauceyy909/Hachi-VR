@@ -23,8 +23,8 @@
   1. chmod +x HACHI-INSTALLER.sh
   2. ./HACHI-INSTALLER.sh
   3. Enter password when prompted
-  4. Reboot your PC
-  5. Run: hachi
+  4. Approve the reboot prompt at the end of the installer
+  5. After reboot, run: hachi
 
 DONE! That's it!
 
@@ -130,13 +130,14 @@ The installer automatically:
   1. Checks system requirements
   2. Installs system packages (OpenCV, USB tools, etc.)
   3. Installs Python packages (numpy, opencv-contrib, etc.)
-  4. Creates directory structure
-  5. Installs finger tracking module
-  6. Installs control center
-  7. Installs VR driver
-  8. Configures USB permissions
-  9. Creates desktop shortcut
-  10. Sets everything up perfectly!
+  4. Removes any previous HACHI install (user and system locations)
+  5. Creates directory structure
+  6. Installs finger tracking module
+  7. Installs control center and links /usr/local/bin/hachi
+  8. Installs VR driver
+  9. Configures USB permissions
+  10. Creates desktop shortcut
+  11. Prompts for reboot so everything reloads cleanly
 
 Time: 5-10 minutes
 Input: Just your sudo password

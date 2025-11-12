@@ -89,15 +89,15 @@ The installer automatically does:
 1. ✅ Checks your system
 2. ✅ Installs system packages (pacman/apt)
 3. ✅ Installs Python packages (pip)
-4. ✅ Removes any previous HACHI installation automatically
+4. ✅ Removes any previous HACHI installation automatically (user and system locations)
 5. ✅ Creates a fresh directory structure
 6. ✅ Builds the Vive Cosmos driver from source
 7. ✅ Installs the finger tracking module
-8. ✅ Installs the HACHI Control Center command
+8. ✅ Installs the HACHI Control Center command and links `/usr/local/bin/hachi`
 9. ✅ Adds shortcuts and updates your PATH
 10. ✅ Installs SteamVR driver manifests and resources
 11. ✅ Configures USB permissions and user groups
-12. ✅ Prompts you to reboot so everything loads cleanly
+12. ✅ Prompts you to reboot so everything loads cleanly (installer asks before exiting)
 
 **Time:** 5-10 minutes  
 **User input required:** Your password (for sudo)

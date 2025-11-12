@@ -68,6 +68,8 @@ HOME_DIR="$HOME"
 HACHI_DIR="$HOME_DIR/.local/share/hachi"
 BIN_DIR="$HOME_DIR/.local/bin"
 DRIVER_DIR="$HOME_DIR/.local/share/Steam/steamapps/common/SteamVR/drivers/vive_cosmos"
+ALT_STEAM_DIR="$HOME_DIR/.steam/steamapps/common/SteamVR/drivers/vive_cosmos"
+LEGACY_STEAM_DIR="$HOME_DIR/.steam/steam/steamapps/common/SteamVR/drivers/vive_cosmos"
 BUILD_DIR="$SCRIPT_DIR/build"
 DESKTOP_DIR="$HOME_DIR/.local/share/applications"
 
@@ -240,13 +242,37 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${CYAN}[7/12] Removing previous HACHI installation...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-if [ -d "$HACHI_DIR" ] || [ -f "$BIN_DIR/hachi" ] || [ -d "$DRIVER_DIR" ]; then
+if [ -d "$HACHI_DIR" ] || [ -f "$BIN_DIR/hachi" ] || [ -d "$DRIVER_DIR" ] || [ -d "$ALT_STEAM_DIR" ] || [ -d "$LEGACY_STEAM_DIR" ]; then
     echo -e "${YELLOW}  ! Previous installation detected${NC}"
     rm -rf "$HACHI_DIR"
     rm -f "$BIN_DIR/hachi"
     rm -rf "$DRIVER_DIR"
+    rm -rf "$ALT_STEAM_DIR"
+    rm -rf "$LEGACY_STEAM_DIR"
     rm -f "$DESKTOP_DIR/hachi-control.desktop"
+    rm -f "$HOME_DIR/.local/share/applications/hachi.desktop"
+    rm -f "$HOME_DIR/.config/autostart/hachi.desktop"
     rm -rf "$BUILD_DIR"
+
+    LEGACY_ITEMS=(
+        "/usr/local/share/hachi"
+        "/opt/hachi"
+        "/usr/local/lib/hachi"
+        "/usr/local/bin/hachi"
+        "/usr/share/applications/hachi-control.desktop"
+        "/usr/share/applications/hachi.desktop"
+    )
+
+    for legacy_path in "${LEGACY_ITEMS[@]}"; do
+        if [ -e "$legacy_path" ]; then
+            if $SUDO_CMD rm -rf "$legacy_path" 2>/dev/null; then
+                echo -e "${GREEN}  ✓ Removed legacy path: ${legacy_path}${NC}"
+            else
+                echo -e "${YELLOW}  ! Could not remove legacy path: ${legacy_path}${NC}"
+            fi
+        fi
+    done
+
     echo -e "${GREEN}  ✓ Removed old files${NC}"
 else
     echo -e "${GREEN}  ✓ No existing installation found${NC}"
@@ -444,6 +470,12 @@ if [ -f "hachi_control.py" ]; then
     echo -e "${GREEN}  ✓ Control center installed${NC}"
     echo -e "${GREEN}  ✓ GPU-adaptive themes enabled${NC}"
     echo -e "${GREEN}  ✓ Real-time monitoring active${NC}"
+
+    if $SUDO_CMD ln -sf "$BIN_DIR/hachi" /usr/local/bin/hachi 2>/dev/null; then
+        echo -e "${GREEN}  ✓ System-wide launcher linked at /usr/local/bin/hachi${NC}"
+    else
+        echo -e "${YELLOW}  ! Could not create /usr/local/bin/hachi (insufficient permissions?)${NC}"
+    fi
 else
     echo -e "${RED}  ✗ hachi_control.py not found!${NC}"
     exit 1
