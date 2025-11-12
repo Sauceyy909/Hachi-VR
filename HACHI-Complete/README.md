@@ -37,11 +37,11 @@ chmod +x HACHI-INSTALLER.sh
 
 ## ✨ What Gets Installed
 
-### 1. **Vive Cosmos SteamVR Driver**
-- ✅ Native OpenVR implementation
-- ✅ Direct SteamVR integration
-- ✅ No Monado dependencies
-- ✅ Actually hands off to SteamVR (fixed your original issue!)
+### 1. **Vive Cosmos SteamVR Driver Health Check**
+- ✅ Detects the official SteamVR Vive Cosmos driver on disk
+- ✅ Leaves Valve's binaries untouched and ready to run
+- ✅ Records diagnostics in `~/.local/share/hachi/driver_status.json`
+- ⚠️ Prompts you to reinstall/launch SteamVR if the driver is missing
 
 ### 2. **Real Finger Tracking System**
 - ✅ OpenCV-based hand detection
@@ -91,11 +91,11 @@ The installer automatically does:
 3. ✅ Installs Python packages (pip)
 4. ✅ Removes any previous HACHI installation automatically (user and system locations)
 5. ✅ Creates a fresh directory structure
-6. ✅ Builds the Vive Cosmos driver from source
+6. ✅ Verifies the SteamVR Vive Cosmos driver is installed
 7. ✅ Installs the finger tracking module
 8. ✅ Installs the HACHI Control Center command and links `/usr/local/bin/hachi`
 9. ✅ Adds shortcuts and updates your PATH
-10. ✅ Installs SteamVR driver manifests and resources
+10. ✅ Captures driver manifests/settings for diagnostics (without touching SteamVR files)
 11. ✅ Configures USB permissions and user groups
 12. ✅ Prompts you to reboot so everything loads cleanly (installer asks before exiting)
 

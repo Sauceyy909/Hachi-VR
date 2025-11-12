@@ -53,7 +53,16 @@ class HachiControl(tk.Tk):
         self.headset_connected = False
         self.driver_installed = False
         self.steamvr_running = False
-        
+        self.cosmos_driver_path = None
+        self.installer_driver_status = None
+        self.steamvr_search_paths = [
+            Path.home() / ".local/share/Steam/steamapps/common/SteamVR",
+            Path.home() / ".steam/steamapps/common/SteamVR",
+            Path.home() / ".steam/steam/steamapps/common/SteamVR",
+        ]
+
+        self.installer_driver_status = self.read_driver_status_file()
+
         # Setup UI
         self.setup_ui()
         
@@ -466,14 +475,35 @@ class HachiControl(tk.Tk):
             font=('Segoe UI', 11)
         ).grid(row=0, column=0, sticky=tk.W, pady=5)
 
-        driver_path = Path.home() / ".local/share/Steam/steamapps/common/SteamVR/drivers/vive_cosmos"
+        self.driver_path_var = tk.StringVar(value="Detecting…")
         tk.Label(
             driver_frame,
-            text=str(driver_path),
+            textvariable=self.driver_path_var,
             bg=self.surface_bg,
             fg=self.accent_color,
-            font=('Segoe UI', 10)
+            font=('Segoe UI', 10),
+            wraplength=380,
+            justify=tk.LEFT
         ).grid(row=0, column=1, sticky=tk.W, padx=10, pady=5)
+
+        tk.Label(
+            driver_frame,
+            text="Installer Check:",
+            bg=self.surface_bg,
+            fg=self.text_primary,
+            font=('Segoe UI', 11)
+        ).grid(row=1, column=0, sticky=tk.W, pady=5)
+
+        self.driver_check_var = tk.StringVar(value="Waiting for installer…")
+        tk.Label(
+            driver_frame,
+            textvariable=self.driver_check_var,
+            bg=self.surface_bg,
+            fg=self.text_secondary,
+            font=('Segoe UI', 10),
+            wraplength=380,
+            justify=tk.LEFT
+        ).grid(row=1, column=1, sticky=tk.W, padx=10, pady=5)
 
         # Tracking settings
         if FINGER_TRACKING_AVAILABLE:
@@ -653,6 +683,8 @@ Detected GPU: {}
                 import subprocess
                 from pathlib import Path
                 import time
+
+                driver_files_copied = False
                 
                 def log(msg):
                     self.after(0, lambda: self.package_log.insert(tk.END, msg + "\n"))
@@ -692,18 +724,29 @@ Detected GPU: {}
                 # Copy driver files from installation
                 log("")
                 log("[3/6] Copying VR driver files...")
-                driver_dir = Path.home() / ".local/share/Steam/steamapps/common/SteamVR/drivers/vive_cosmos"
-                
-                driver_files = [
-                    "driver.vrdrivermanifest",
-                    "resources.vrsettings",
-                ]
-                
-                for filename in driver_files:
-                    src = driver_dir / filename
-                    if src.exists():
-                        shutil.copy2(src, package_dir / filename)
-                        log(f"  ✓ Copied: {filename}")
+                driver_binary = self.locate_cosmos_driver()
+
+                if driver_binary:
+                    driver_dir = driver_binary.parent.parent.parent
+                    driver_files = [
+                        "driver.vrdrivermanifest",
+                        "resources.vrsettings",
+                    ]
+
+                    for filename in driver_files:
+                        src = driver_dir / filename
+                        if src.exists():
+                            shutil.copy2(src, package_dir / filename)
+                            log(f"  ✓ Copied: {filename}")
+                        else:
+                            log(f"  ! Missing: {filename}")
+
+                    # Preserve the binary reference for offline debugging
+                    shutil.copy2(driver_binary, package_dir / "driver_cosmos.so")
+                    log("  ✓ Copied: driver_cosmos.so")
+                    driver_files_copied = True
+                else:
+                    log("  ! Vive Cosmos driver not found. Run SteamVR and retry.")
                 
                 # Check if C++ source files exist
                 log("")
@@ -818,7 +861,10 @@ echo "Run: hachi"
                 log("The package includes:")
                 log("  ✓ finger_tracking.py")
                 log("  ✓ hachi_control.py")
-                log("  ✓ VR driver files")
+                if driver_files_copied:
+                    log("  ✓ Vive Cosmos driver snapshots")
+                else:
+                    log("  ! Vive Cosmos driver files not bundled")
                 log("  ✓ C++ source files")
                 log("  ✓ INSTALL script")
                 log("  ✓ Documentation")
@@ -886,24 +932,48 @@ echo "Run: hachi"
         )
         btn.grid(row=row, column=col, padx=10, pady=10)
         return btn
-    
+
+    def locate_cosmos_driver(self):
+        """Locate the SteamVR Vive Cosmos driver binary"""
+        for base in self.steamvr_search_paths:
+            driver_candidate = base / "drivers" / "vive_cosmos" / "bin" / "linux64" / "driver_cosmos.so"
+            if driver_candidate.exists():
+                return driver_candidate
+        return None
+
+    def read_driver_status_file(self):
+        """Read installer-captured driver status"""
+        status_path = Path.home() / ".local/share/hachi/driver_status.json"
+        try:
+            data = json.loads(status_path.read_text())
+            return data if isinstance(data, dict) else None
+        except FileNotFoundError:
+            return None
+        except json.JSONDecodeError:
+            return {"status": "invalid", "path": None, "checked_at": None}
+        except Exception:
+            return None
+
     def monitor_loop(self):
         """Monitor VR system status"""
         while True:
             try:
                 # Check headset connection
                 self.headset_connected = self.check_headset_connected()
-                
+
                 # Check driver
                 self.driver_installed = self.check_driver_installed()
-                
+
                 # Check SteamVR
                 self.steamvr_running = self.check_steamvr_running()
+
+                # Refresh installer snapshot
+                self.installer_driver_status = self.read_driver_status_file()
 
                 # Update UI
                 self.after(0, self.update_status_indicators)
                 self.after(0, self.update_system_info)
-                
+
             except Exception as e:
                 print(f"Monitor error: {e}")
             
@@ -920,8 +990,9 @@ echo "Run: hachi"
     
     def check_driver_installed(self):
         """Check if driver is installed"""
-        driver_path = Path.home() / ".local/share/Steam/steamapps/common/SteamVR/drivers/vive_cosmos"
-        return (driver_path / "driver.vrdrivermanifest").exists()
+        driver_candidate = self.locate_cosmos_driver()
+        self.cosmos_driver_path = driver_candidate
+        return driver_candidate is not None
     
     def check_steamvr_running(self):
         """Check if SteamVR is running"""
@@ -946,7 +1017,21 @@ echo "Run: hachi"
         info.append(f"Headset: {'Connected' if self.headset_connected else 'Not Connected'}")
         info.append(f"Driver: {'Installed' if self.driver_installed else 'Not Installed'}")
         info.append(f"SteamVR: {'Running' if self.steamvr_running else 'Not Running'}")
-        
+
+        if self.cosmos_driver_path:
+            driver_display = str(self.cosmos_driver_path)
+        else:
+            driver_display = "Not found"
+
+        info.append(f"Driver Path: {driver_display}")
+
+        if self.installer_driver_status:
+            status_label = self.installer_driver_status.get('status', 'unknown')
+            checked_at = self.installer_driver_status.get('checked_at', 'unknown time')
+            info.append(f"Installer Check: {status_label} @ {checked_at}")
+        else:
+            info.append("Installer Check: No data")
+
         if FINGER_TRACKING_AVAILABLE:
             info.append(f"\nFinger Tracking: Available")
         else:
@@ -963,6 +1048,17 @@ echo "Run: hachi"
         
         self.info_text.delete('1.0', tk.END)
         self.info_text.insert('1.0', '\n'.join(info))
+
+        if hasattr(self, 'driver_path_var') and self.driver_path_var is not None:
+            self.driver_path_var.set(driver_display)
+
+        if hasattr(self, 'driver_check_var') and self.driver_check_var is not None:
+            if self.installer_driver_status:
+                status_label = self.installer_driver_status.get('status', 'unknown')
+                checked_at = self.installer_driver_status.get('checked_at', 'unknown time')
+                self.driver_check_var.set(f"{status_label} @ {checked_at}")
+            else:
+                self.driver_check_var.set("No installer record found")
     
     def launch_steamvr(self):
         """Launch SteamVR"""

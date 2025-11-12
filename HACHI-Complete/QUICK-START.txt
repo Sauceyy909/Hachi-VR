@@ -13,7 +13,7 @@
 ✅ GUI installer that auto-installs everything
 ✅ No Python setup needed by user
 ✅ Self-contained installer script
-✅ Vive Cosmos SteamVR driver
+✅ Vive Cosmos driver verification and diagnostics
 ✅ HACHI Control Center GUI
 ✅ All dependencies handled automatically
 
@@ -90,12 +90,11 @@ FINGER TRACKING:
   • Test mode with camera preview
 
 VR DRIVER:
-  • Native SteamVR integration
-  • OpenVR implementation
-  • No Monado dependencies
-  • Actually hands to SteamVR (fixed!)
-  • USB device communication
-  • Real-time pose tracking
+  • Verifies SteamVR's Vive Cosmos driver is installed
+  • Records diagnostics for the Control Center dashboard
+  • Leaves Valve's binaries untouched (no custom forks)
+  • Warns you to reinstall or launch SteamVR if anything is missing
+  • Installs USB permissions so the official driver can talk to the headset
 
 CONTROL CENTER:
   • Beautiful GPU-adaptive UI
@@ -118,10 +117,10 @@ Before (Your Code):
   ❌ Didn't actually work
 
 After (HACHI):
-  ✅ Hands directly to SteamVR
+  ✅ Keeps the official SteamVR driver intact
   ✅ No Monado needed
-  ✅ All features working
-  ✅ Actually works!
+  ✅ All features working (control center + finger tracking)
+  ✅ Highlights driver issues instantly
 
 🔥 INSTALLATION DETAILS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -134,7 +133,7 @@ The installer automatically:
   5. Creates directory structure
   6. Installs finger tracking module
   7. Installs control center and links /usr/local/bin/hachi
-  8. Installs VR driver
+  8. Verifies SteamVR's Vive Cosmos driver and logs diagnostics
   9. Configures USB permissions
   10. Creates desktop shortcut
   11. Prompts for reboot so everything reloads cleanly
@@ -191,11 +190,11 @@ Finger Tracking:
   • Accuracy: Calibratable per user
 
 Driver:
-  • Protocol: OpenVR native
-  • Connection: USB HID
-  • Refresh Rate: 90 Hz
-  • Tracking: 6DOF
-  • Hand Data: Real-time finger counts
+  • Source: Official SteamVR Vive Cosmos driver binaries
+  • Validation: Manifest + binary presence check
+  • Permissions: USB HID udev rules and plugdev/video groups
+  • Monitoring: Control Center reads driver_status.json + SteamVR paths
+  • Recovery: Installer guides you to relaunch or reinstall SteamVR when missing
 
 🔧 TROUBLESHOOTING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
