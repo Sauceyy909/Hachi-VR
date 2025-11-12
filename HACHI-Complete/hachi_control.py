@@ -55,7 +55,9 @@ class HachiControl(tk.Tk):
         self.driver_installed = False
         self.steamvr_running = False
         self.cosmos_driver_path = None
+        self.driver_origin = "unknown"
         self.installer_driver_status = None
+        self.custom_driver_info = None
         self.display_connection_details = []
         self.steamvr_search_paths = [
             Path.home() / ".local/share/Steam/steamapps/common/SteamVR",
@@ -497,7 +499,7 @@ class HachiControl(tk.Tk):
             font=('Segoe UI', 11)
         ).grid(row=1, column=0, sticky=tk.W, pady=5)
 
-        self.driver_source_var = tk.StringVar(value="SteamVR (Valve official distribution)")
+        self.driver_source_var = tk.StringVar(value="No driver detected yet")
         tk.Label(
             driver_frame,
             textvariable=self.driver_source_var,
@@ -957,10 +959,18 @@ echo "Run: hachi"
 
     def locate_cosmos_driver(self):
         """Locate the SteamVR Vive Cosmos driver binary"""
+        custom_driver = Path.home() / ".local/share/hachi/driver/cosmos_bridge"
+        if custom_driver.exists() and os.access(custom_driver, os.X_OK):
+            self.driver_origin = "hachi-cosmos"
+            return custom_driver
+
         for base in self.steamvr_search_paths:
             driver_candidate = base / "drivers" / "vive_cosmos" / "bin" / "linux64" / "driver_cosmos.so"
             if driver_candidate.exists():
+                self.driver_origin = "steamvr"
                 return driver_candidate
+
+        self.driver_origin = "missing"
         return None
 
     def read_driver_status_file(self):
@@ -985,6 +995,15 @@ echo "Run: hachi"
         checked_at = status_data.get('checked_at', 'unknown time')
         summary = f"{status_label} @ {checked_at}"
 
+        origin = status_data.get('origin')
+        if origin:
+            origin_map = {
+                'hachi-cosmos': 'HACHI bridge',
+                'steamvr': 'SteamVR',
+                'none': 'No driver',
+            }
+            summary += f" [{origin_map.get(origin, origin)}]"
+
         repair_attempted = (status_data.get('repair_attempted') or '').lower()
         repair_result = status_data.get('repair_result') or 'unknown'
         repair_message = status_data.get('repair_message') or ''
@@ -995,6 +1014,44 @@ echo "Run: hachi"
                 summary += f" ({repair_message})"
 
         return summary
+
+    def query_custom_driver_info(self):
+        """Execute the local cosmos_bridge helper for detailed status"""
+        driver_bin = Path.home() / ".local/share/hachi/driver/cosmos_bridge"
+        if not driver_bin.exists():
+            return None
+
+        try:
+            result = subprocess.run(
+                [str(driver_bin), "--json"],
+                capture_output=True,
+                text=True,
+                timeout=4,
+                check=False,
+            )
+        except FileNotFoundError:
+            return {"error": "cosmos_bridge binary missing"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+        payload = result.stdout.strip()
+        details = {}
+        if payload:
+            try:
+                details = json.loads(payload)
+            except json.JSONDecodeError:
+                details = {
+                    "error": "invalid-json",
+                    "raw": payload,
+                }
+        else:
+            details = {"error": "no-output"}
+
+        if result.stderr and result.stderr.strip():
+            details["stderr"] = result.stderr.strip()
+
+        details["return_code"] = result.returncode
+        return details
 
     def monitor_loop(self):
         """Monitor VR system status"""
@@ -1008,6 +1065,11 @@ echo "Run: hachi"
 
                 # Check driver
                 self.driver_installed = self.check_driver_installed()
+
+                if self.driver_origin == "hachi-cosmos":
+                    self.custom_driver_info = self.query_custom_driver_info()
+                else:
+                    self.custom_driver_info = None
 
                 # Check SteamVR
                 self.steamvr_running = self.check_steamvr_running()
@@ -1121,10 +1183,23 @@ echo "Run: hachi"
 
         if self.cosmos_driver_path:
             driver_display = str(self.cosmos_driver_path)
-            driver_source_text = "SteamVR (Valve official distribution)"
         else:
             driver_display = "Not found"
-            driver_source_text = "SteamVR driver not detected"
+
+        if self.driver_origin == "hachi-cosmos":
+            driver_source_text = "HACHI Cosmos bridge helper"
+        elif self.driver_origin == "steamvr":
+            driver_source_text = "SteamVR (Valve official distribution)"
+        else:
+            installer_origin = (self.installer_driver_status or {}).get('origin') if self.installer_driver_status else None
+            if installer_origin == "hachi-cosmos":
+                driver_source_text = "HACHI Cosmos bridge helper (installer snapshot)"
+            elif installer_origin == "steamvr":
+                driver_source_text = "SteamVR driver (installer snapshot)"
+            elif installer_origin == "none":
+                driver_source_text = "Installer reported no driver"
+            else:
+                driver_source_text = "No driver detected"
 
         info.append(f"Driver Path: {driver_display}")
         info.append(f"Driver Source: {driver_source_text}")
@@ -1134,6 +1209,11 @@ echo "Run: hachi"
             info.append(f"Installer Check: {installer_summary}")
         else:
             info.append("Installer Check: No data")
+
+        if self.installer_driver_status:
+            steamvr_path = self.installer_driver_status.get('steamvr_driver')
+            if steamvr_path:
+                info.append(f"SteamVR Driver Path: {steamvr_path}")
 
         if FINGER_TRACKING_AVAILABLE:
             info.append(f"\nFinger Tracking: Available")
@@ -1152,6 +1232,40 @@ echo "Run: hachi"
         if self.display_connection_details:
             info.append(f"\n=== DISPLAY LINKS ===")
             info.extend(self.display_connection_details)
+
+        if self.driver_origin == "hachi-cosmos" and self.custom_driver_info:
+            info.append(f"\n=== COSMOS BRIDGE ===")
+            driver_data = self.custom_driver_info
+            if driver_data.get('error'):
+                info.append(f"Probe Error: {driver_data.get('error')}")
+            else:
+                present = driver_data.get('present')
+                if isinstance(present, bool):
+                    info.append(f"Hardware Detected: {'Yes' if present else 'No'}")
+                label = driver_data.get('label') or driver_data.get('product_string')
+                if label:
+                    info.append(f"Label: {label}")
+                vendor_id = driver_data.get('vendor_id')
+                product_id = driver_data.get('product_id')
+                if vendor_id and product_id:
+                    info.append(f"USB IDs: {vendor_id} / {product_id}")
+                bus_val = driver_data.get('bus')
+                address_val = driver_data.get('address')
+                if bus_val is not None and address_val is not None:
+                    info.append(f"Bus: {bus_val}  Address: {address_val}")
+                port_path = driver_data.get('port_path')
+                if port_path:
+                    info.append(f"Port Path: {port_path}")
+                message = driver_data.get('message')
+                if message:
+                    info.append(f"Message: {message}")
+                if driver_data.get('permission_denied'):
+                    info.append("USB Access: permission denied (udev rule required)")
+            info.append(f"Probe Exit Code: {driver_data.get('return_code')}")
+            if driver_data.get('stderr'):
+                info.append(f"Probe stderr: {driver_data.get('stderr')}")
+            if driver_data.get('raw'):
+                info.append(f"Raw Output: {driver_data.get('raw')}")
 
         self.info_text.delete('1.0', tk.END)
         self.info_text.insert('1.0', '\n'.join(info))

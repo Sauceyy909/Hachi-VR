@@ -33,10 +33,17 @@ write_driver_status() {
     local repair_attempted="$3"
     local repair_result="$4"
     local repair_message="$5"
+    local driver_origin="${6:-steamvr}"
+    local steamvr_driver_path="$7"
 
     local path_json="null"
     if [ -n "$driver_path" ]; then
         path_json="\"$driver_path\""
+    fi
+
+    local steamvr_json="null"
+    if [ -n "$steamvr_driver_path" ]; then
+        steamvr_json="\"$steamvr_driver_path\""
     fi
 
     mkdir -p "$HACHI_DIR"
@@ -47,50 +54,14 @@ write_driver_status() {
   "checked_at": "$(date --iso-8601=seconds)",
   "repair_attempted": "${repair_attempted}",
   "repair_result": "${repair_result}",
-  "repair_message": "${repair_message}"
+  "repair_message": "${repair_message}",
+  "origin": "${driver_origin}",
+  "steamvr_driver": ${steamvr_json}
 }
 STATUS_EOF
 }
 
-select_steamvr_target() {
-    local target=""
-    for candidate in "${STEAMVR_SEARCH_PATHS[@]}"; do
-        local parent_dir
-        parent_dir="$(dirname "${candidate}")"
-        if [ -d "$parent_dir" ]; then
-            target="$candidate"
-            break
-        fi
-    done
-
-    if [ -z "$target" ]; then
-        target="${STEAMVR_SEARCH_PATHS[0]}"
-    fi
-
-    echo "$target"
-}
-
-attempt_steamvr_repair() {
-    local target_dir="$1"
-
-    if ! command -v steamcmd &> /dev/null; then
-        echo -e "${YELLOW}  ! steamcmd is not installed; skipping automatic SteamVR repair${NC}"
-        echo -e "${YELLOW}    Install steamcmd (package: steamcmd) and re-run ./INSTALL to retry.${NC}"
-        return 2
-    fi
-
-    mkdir -p "$target_dir"
-    echo -e "${CYAN}  • Validating SteamVR files via steamcmd...${NC}"
-    if steamcmd +login anonymous +force_install_dir "$target_dir" +app_update 250820 validate +quit; then
-        echo -e "${GREEN}  ✓ SteamVR validation completed${NC}"
-        return 0
-    else
-        echo -e "${YELLOW}  ! steamcmd validation did not complete successfully${NC}"
-        return 1
-    fi
-}
-
-locate_cosmos_driver() {
+locate_steamvr_cosmos_driver() {
     for candidate in "${STEAMVR_SEARCH_PATHS[@]}"; do
         local driver_candidate="$candidate/drivers/vive_cosmos/bin/linux64/driver_cosmos.so"
         if [ -f "$driver_candidate" ]; then
@@ -379,82 +350,66 @@ echo -e "${GREEN}  ✓ Created: $BIN_DIR${NC}"
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[9/12] Preparing Vive Cosmos driver assets...${NC}"
+echo -e "${CYAN}[9/12] Building HACHI Cosmos bridge driver...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-echo -e "${CYAN}  • Relying on Valve's SteamVR distribution of the Vive Cosmos driver${NC}"
-if [ -d "$SCRIPT_DIR/build" ]; then
-    echo -e "${CYAN}  • Local source tree detected in ${SCRIPT_DIR}/build (optional reference only)${NC}"
-    echo -e "${CYAN}    Skipping compilation; the official SteamVR driver will be validated instead${NC}"
-else
-    echo -e "${CYAN}  • No local driver build artifacts bundled with this installer${NC}"
-fi
-
+COSMOS_BRIDGE_SRC_DIR="$SCRIPT_DIR/driver"
+COSMOS_BRIDGE_BUILD_DIR="$SCRIPT_DIR/.driver-build"
+COSMOS_BRIDGE_INSTALL_DIR="$HACHI_DIR/driver"
+CUSTOM_DRIVER_PATH=""
+STEAMVR_DRIVER_PATH=""
 COSMOS_DRIVER_PATH=""
-STEAMVR_ROOT=""
-REPAIR_ATTEMPTED="no"
-REPAIR_RESULT="not-needed"
-REPAIR_MESSAGE="detected-on-disk"
 
-if driver_path=$(locate_cosmos_driver); then
-    COSMOS_DRIVER_PATH="$driver_path"
-    STEAMVR_ROOT="$(dirname "$COSMOS_DRIVER_PATH")"
-    STEAMVR_ROOT="$(dirname "$STEAMVR_ROOT")"
-    STEAMVR_ROOT="$(dirname "$STEAMVR_ROOT")"
+if [ -d "$COSMOS_BRIDGE_SRC_DIR" ]; then
+    echo -e "${CYAN}  • Compiling user-space USB probe (cosmos_bridge)...${NC}"
+    rm -rf "$COSMOS_BRIDGE_BUILD_DIR"
+    mkdir -p "$COSMOS_BRIDGE_BUILD_DIR"
+    cp -R "$COSMOS_BRIDGE_SRC_DIR/." "$COSMOS_BRIDGE_BUILD_DIR/"
+
+    if make -C "$COSMOS_BRIDGE_BUILD_DIR" > "$COSMOS_BRIDGE_BUILD_DIR/build.log" 2>&1; then
+        install -Dm755 "$COSMOS_BRIDGE_BUILD_DIR/cosmos_bridge" \
+            "$COSMOS_BRIDGE_INSTALL_DIR/cosmos_bridge"
+        if [ -f "$COSMOS_BRIDGE_SRC_DIR/README.md" ]; then
+            install -Dm644 "$COSMOS_BRIDGE_SRC_DIR/README.md" \
+                "$COSMOS_BRIDGE_INSTALL_DIR/README.md"
+        fi
+
+        echo -e "${GREEN}  ✓ cosmos_bridge compiled successfully${NC}"
+        echo -e "${GREEN}  ✓ Installed to $COSMOS_BRIDGE_INSTALL_DIR${NC}"
+        echo -e "${GREEN}  ✓ Use 'cosmos_bridge --monitor' to inspect USB connectivity${NC}"
+        CUSTOM_DRIVER_PATH="$COSMOS_BRIDGE_INSTALL_DIR/cosmos_bridge"
+        rm -f "$COSMOS_BRIDGE_BUILD_DIR/build.log"
+    else
+        echo -e "${RED}  ✗ Failed to build cosmos_bridge helper${NC}"
+        echo -e "${YELLOW}    Review $COSMOS_BRIDGE_BUILD_DIR/build.log for compiler output${NC}"
+    fi
+else
+    echo -e "${YELLOW}  ! Driver source directory missing at ${COSMOS_BRIDGE_SRC_DIR}${NC}"
 fi
 
-if [ -n "$COSMOS_DRIVER_PATH" ]; then
-    echo -e "${GREEN}  ✓ Found SteamVR Vive Cosmos driver at:${NC}"
-    echo -e "      $COSMOS_DRIVER_PATH"
-    echo -e "${GREEN}  ✓ Leaving official driver untouched${NC}"
-
-    write_driver_status "found" "$COSMOS_DRIVER_PATH" "$REPAIR_ATTEMPTED" "$REPAIR_RESULT" "$REPAIR_MESSAGE"
+if driver_path=$(locate_steamvr_cosmos_driver); then
+    STEAMVR_DRIVER_PATH="$driver_path"
+    echo -e "${GREEN}  ✓ SteamVR Vive Cosmos driver detected at:${NC}"
+    echo -e "      $STEAMVR_DRIVER_PATH"
 else
-    echo -e "${RED}  ✗ SteamVR's Vive Cosmos driver was not found${NC}"
-    echo -e "${YELLOW}    • Launch SteamVR once to let it deploy device drivers${NC}"
-    echo -e "${YELLOW}    • HACHI will try to repair the installation automatically${NC}"
+    echo -e "${YELLOW}  ! SteamVR Vive Cosmos driver not found${NC}"
+    echo -e "${YELLOW}    Launch SteamVR once or validate the app to allow discovery${NC}"
+fi
 
-    REPAIR_ATTEMPTED="yes"
-    REPAIR_RESULT="skipped"
-    REPAIR_MESSAGE="steamcmd-unavailable"
+if [ -n "$CUSTOM_DRIVER_PATH" ]; then
+    write_driver_status "installed" "$CUSTOM_DRIVER_PATH" "build" "succeeded" \
+        "cosmos-bridge" "hachi-cosmos" "$STEAMVR_DRIVER_PATH"
+elif [ -n "$STEAMVR_DRIVER_PATH" ]; then
+    write_driver_status "steamvr-only" "$STEAMVR_DRIVER_PATH" "scan" "skipped" \
+        "steamvr-detected" "steamvr" "$STEAMVR_DRIVER_PATH"
+else
+    write_driver_status "missing" "" "scan" "skipped" "no-driver-assets" "none" ""
+fi
 
-    REPAIR_TARGET="$(select_steamvr_target)"
-    if [ -n "$REPAIR_TARGET" ]; then
-        echo -e "${CYAN}  • Attempting to repair SteamVR at:${NC}"
-        echo -e "      $REPAIR_TARGET"
-        if attempt_steamvr_repair "$REPAIR_TARGET"; then
-            REPAIR_RESULT="succeeded"
-            REPAIR_MESSAGE="steamcmd-validated"
-        else
-            REPAIR_EXIT=$?
-            if [ "$REPAIR_EXIT" -eq 2 ]; then
-                REPAIR_RESULT="skipped"
-                REPAIR_MESSAGE="steamcmd-not-installed"
-            else
-                REPAIR_RESULT="failed"
-                REPAIR_MESSAGE="steamcmd-error"
-            fi
-        fi
-
-        if driver_path=$(locate_cosmos_driver); then
-            COSMOS_DRIVER_PATH="$driver_path"
-            STEAMVR_ROOT="$(dirname "$COSMOS_DRIVER_PATH")"
-            STEAMVR_ROOT="$(dirname "$STEAMVR_ROOT")"
-            STEAMVR_ROOT="$(dirname "$STEAMVR_ROOT")"
-        fi
-    fi
-
-    if [ -n "$COSMOS_DRIVER_PATH" ]; then
-        echo -e "${GREEN}  ✓ SteamVR driver available after repair:${NC}"
-        echo -e "      $COSMOS_DRIVER_PATH"
-        REPAIR_RESULT="${REPAIR_RESULT:-succeeded}"
-        write_driver_status "found" "$COSMOS_DRIVER_PATH" "$REPAIR_ATTEMPTED" "$REPAIR_RESULT" "$REPAIR_MESSAGE"
-    else
-        echo -e "${YELLOW}  ! Vive Cosmos driver still missing${NC}"
-        echo -e "${YELLOW}    • Launch Steam and run a SteamVR file validation${NC}"
-        echo -e "${YELLOW}    • Or reinstall SteamVR from the store page${NC}"
-        write_driver_status "missing" "" "$REPAIR_ATTEMPTED" "$REPAIR_RESULT" "$REPAIR_MESSAGE"
-    fi
+if [ -n "$CUSTOM_DRIVER_PATH" ]; then
+    COSMOS_DRIVER_PATH="$CUSTOM_DRIVER_PATH"
+elif [ -n "$STEAMVR_DRIVER_PATH" ]; then
+    COSMOS_DRIVER_PATH="$STEAMVR_DRIVER_PATH"
 fi
 
 echo ""
@@ -600,7 +555,8 @@ finish_installation_summary() {
     echo -e "${CYAN}Rebooting ensures USB permissions and drivers reload correctly.${NC}"
     echo ""
     echo -e "${GREEN}What was installed:${NC}"
-    echo -e "  ${CYAN}✓${NC} SteamVR Vive Cosmos driver verification"
+    echo -e "  ${CYAN}✓${NC} HACHI cosmos_bridge USB helper"
+    echo -e "  ${CYAN}✓${NC} SteamVR Vive Cosmos driver snapshot"
     echo -e "  ${CYAN}✓${NC} Real Finger Tracking (OpenCV-based)"
     echo -e "  ${CYAN}✓${NC} HACHI Control Center GUI"
     echo -e "  ${CYAN}✓${NC} All Dependencies & Libraries"

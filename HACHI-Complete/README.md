@@ -37,14 +37,19 @@ chmod +x HACHI-INSTALLER.sh
 
 ## ✨ What Gets Installed
 
-### 1. **Vive Cosmos SteamVR Driver Health Check**
-- ✅ Detects the official SteamVR Vive Cosmos driver on disk
-- ✅ Leaves Valve's binaries untouched and ready to run
-- ✅ Records diagnostics in `~/.local/share/hachi/driver_status.json`
-- ✅ Automatically runs a `steamcmd` validation when the driver is missing (and tells you if steamcmd is unavailable)
-- ⚠️ Prompts you to reinstall/launch SteamVR if the driver is still missing after repair
+### 1. **HACHI Cosmos Bridge Helper**
+- ✅ Compiles a local `cosmos_bridge` USB probe against libusb
+- ✅ Installs the helper to `~/.local/share/hachi/driver/cosmos_bridge`
+- ✅ Surfaces probe results (USB IDs, bus, access errors) directly in the Control Center
+- ⚠️ Does not replace Valve's runtime driver—SteamVR is still required for headset streaming
 
-### 2. **Real Finger Tracking System**
+### 2. **SteamVR Driver Snapshot**
+- ✅ Detects the official SteamVR Vive Cosmos driver on disk when present
+- ✅ Records diagnostics in `~/.local/share/hachi/driver_status.json`
+- ✅ Stores both the locally built helper path and the SteamVR driver path (if found)
+- ⚠️ Prompts you to launch or validate SteamVR if the driver is not yet deployed
+
+### 3. **Real Finger Tracking System**
 - ✅ OpenCV-based hand detection
 - ✅ Real-time finger counting (0-5 per hand)
 - ✅ Both left and right hand tracking
@@ -53,7 +58,7 @@ chmod +x HACHI-INSTALLER.sh
 - ✅ Visual test mode with camera preview
 - ✅ Actually works - not a "coming soon" feature!
 
-### 3. **HACHI Control Center**
+### 4. **HACHI Control Center**
 - ✅ Beautiful GPU-adaptive UI (NVIDIA green, AMD red, Intel blue)
 - ✅ Triple-black visual design inspired by the NVIDIA Control Panel
 - ✅ Displays the exact detected GPU model right in the header
@@ -67,7 +72,7 @@ chmod +x HACHI-INSTALLER.sh
 - ✅ Log viewing
 - ✅ Installed to `~/.local/share/hachi` with a wrapper script in `~/.local/bin/hachi`
 
-### 4. **All Dependencies**
+### 5. **All Dependencies**
 - ✅ Python packages (OpenCV, NumPy, etc.)
 - ✅ System libraries (USB, HID, etc.)
 - ✅ Camera support (V4L)
@@ -79,14 +84,15 @@ chmod +x HACHI-INSTALLER.sh
 ```
 HACHI-Complete/
 ├── HACHI-INSTALLER.sh      ← Run this! (Self-contained installer)
+├── driver/                 ← Source for the cosmos_bridge USB helper
 ├── finger_tracking.py       ← Real finger tracking module
 ├── hachi_control.py         ← Full control center GUI
 ├── hachi_installer.py       ← GUI installer (optional)
 └── README.md               ← This file
 ```
 
-> ℹ️ The repository also includes a `build/` directory with experimental CMake sources for a custom driver. The installer
-> skips compiling those files and instead validates that Valve's SteamVR Vive Cosmos driver is present on your system.
+> ℹ️ The `driver/` directory ships a small `cosmos_bridge` helper that the installer compiles automatically. SteamVR still
+> provides the actual runtime driver, but the helper gives you visibility into USB connectivity and permission issues.
 
 ## 🎮 Installation Process
 
@@ -97,13 +103,13 @@ The installer automatically does:
 3. ✅ Installs Python packages (pip)
 4. ✅ Removes any previous HACHI installation automatically (user and system locations)
 5. ✅ Creates a fresh directory structure in `~/.local/share/hachi` and `~/.local/bin`
-6. ✅ Validates the SteamVR-supplied Vive Cosmos driver (no local source build required) and triggers an automatic `steamcmd` repair when it is missing
-7. ✅ Installs the finger tracking module
-8. ✅ Installs the HACHI Control Center launcher script and links `/usr/local/bin/hachi`
-9. ✅ Adds shortcuts and updates your PATH
-10. ✅ Captures driver manifests/settings for diagnostics (without touching SteamVR files)
-11. ✅ Configures USB permissions and user groups
-12. ✅ Prompts you to reboot so everything loads cleanly (installer asks before exiting)
+6. ✅ Builds the `cosmos_bridge` USB helper and places it in `~/.local/share/hachi/driver`
+7. ✅ Scans for Valve's SteamVR Vive Cosmos driver and records its path when found
+8. ✅ Installs the finger tracking module
+9. ✅ Installs the HACHI Control Center launcher script and links `/usr/local/bin/hachi`
+10. ✅ Adds shortcuts and updates your PATH
+11. ✅ Captures driver manifests/settings for diagnostics (without touching SteamVR files)
+12. ✅ Configures USB permissions, updates user groups, and prompts for a reboot
 
 **Time:** 5-10 minutes  
 **User input required:** Your password (for sudo)
@@ -203,12 +209,15 @@ groups
 
 ### SteamVR driver still missing?
 ```bash
-# Install steamcmd if the installer reported it was unavailable
-sudo apt install steamcmd      # Debian/Ubuntu
-# or
-sudo pacman -S steamcmd        # Arch / Manjaro
+# Launch SteamVR once so Valve can deploy its drivers
+steam steam://rungameid/250820
 
-# Re-run the installer to trigger a fresh SteamVR validation
+# Optional: validate files with steamcmd if you prefer the CLI
+sudo apt install steamcmd      # Debian/Ubuntu
+sudo pacman -S steamcmd        # Arch / Manjaro
+steamcmd +login anonymous +app_update 250820 validate +quit
+
+# Re-run ./HACHI-INSTALLER.sh to refresh the status snapshot afterwards
 ./HACHI-INSTALLER.sh
 ```
 

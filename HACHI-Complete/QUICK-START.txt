@@ -13,7 +13,7 @@
 ✅ GUI installer that auto-installs everything
 ✅ No Python setup needed by user
 ✅ Self-contained installer script
-✅ Vive Cosmos driver verification and diagnostics
+✅ Cosmos bridge USB helper plus SteamVR driver diagnostics
 ✅ HACHI Control Center GUI
 ✅ All dependencies handled automatically
 ✅ Automatically removes any previous HACHI install before deploying the new build
@@ -38,6 +38,14 @@ DONE! That's it!
 │   ↳ No Python needed to run this                        │
 │   ↳ Does EVERYTHING automatically                       │
 │   ↳ THIS IS WHAT YOU RUN!                              │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│ driver/                                                  │
+│   ↳ Source for the cosmos_bridge USB helper             │
+│   ↳ Compiled automatically during installation          │
+│   ↳ Outputs ~/.local/share/hachi/driver/cosmos_bridge   │
+│   ↳ Aids debugging USB permission/link issues           │
 └─────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────┐
@@ -91,12 +99,12 @@ FINGER TRACKING:
   • Test mode with camera preview
 
 VR DRIVER:
-  • Verifies SteamVR's Vive Cosmos driver is installed
-  • Records diagnostics for the Control Center dashboard
-  • Leaves Valve's binaries untouched (no custom forks)
-  • Skips compiling the experimental sources in ./build (they're included for reference only)
-  • Automatically runs a steamcmd validation when the driver is missing (and reports if steamcmd is unavailable)
-  • Warns you to reinstall or launch SteamVR if anything is missing after repair
+  • Compiles the local `cosmos_bridge` USB helper for connectivity checks
+  • Installs the helper under ~/.local/share/hachi/driver/cosmos_bridge
+  • Reports USB IDs, port path, and permission issues in the Control Center
+  • Detects Valve's SteamVR Vive Cosmos driver when it exists (no files modified)
+  • Records both helper and SteamVR paths in driver_status.json
+  • Prompts you to launch/validate SteamVR if Valve's driver is still missing
   • Installs USB permissions so the official driver can talk to the headset
 
 CONTROL CENTER:
@@ -135,12 +143,12 @@ The installer automatically:
   3. Installs Python packages (numpy, opencv-contrib, etc.)
   4. Removes any previous HACHI install (user and system locations)
   5. Creates directory structure in ~/.local/share/hachi and ~/.local/bin
-  6. Validates the SteamVR-supplied Vive Cosmos driver (skips local source builds) and runs steamcmd repair when needed
-  7. Installs finger tracking module
-  8. Installs the control center launcher, links /usr/local/bin/hachi, and creates the desktop shortcut
-  9. Captures diagnostics and driver manifests for the Control Center
-  10. Configures USB permissions
-  11. Prompts for reboot so everything reloads cleanly
+  6. Builds the cosmos_bridge USB helper and stores it under ~/.local/share/hachi/driver
+  7. Detects Valve's SteamVR Vive Cosmos driver path (if present)
+  8. Installs the finger tracking module
+  9. Installs the control center launcher, links /usr/local/bin/hachi, and creates the desktop shortcut
+  10. Captures diagnostics and driver manifests for the Control Center
+  11. Configures USB permissions and prompts for reboot so everything reloads cleanly
 
 Time: 5-10 minutes
 Input: Just your sudo password
@@ -200,8 +208,8 @@ Driver:
   • Source: Official SteamVR Vive Cosmos driver binaries
   • Validation: Manifest + binary presence check
   • Permissions: USB HID udev rules and plugdev/video groups
-  • Monitoring: Control Center reads driver_status.json (including repair attempts) + SteamVR paths
-  • Recovery: Installer automatically runs steamcmd validation and guides you if manual action is still needed
+  • Monitoring: Control Center reads driver_status.json and live data from cosmos_bridge
+  • Recovery: Launch SteamVR once (or validate via steamcmd) and rerun the installer for an updated snapshot
 
 🔧 TROUBLESHOOTING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -219,8 +227,9 @@ Permissions issues?
   → Check: groups (should show "plugdev")
 
 SteamVR driver missing?
-  → Install steamcmd (apt install steamcmd / pacman -S steamcmd)
-  → Re-run ./HACHI-INSTALLER.sh to trigger automatic validation
+  → Launch SteamVR once (steam steam://rungameid/250820)
+  → Optional: validate with steamcmd (apt install steamcmd / pacman -S steamcmd)
+  → Re-run ./HACHI-INSTALLER.sh to refresh diagnostics
 
 📚 DOCUMENTATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
