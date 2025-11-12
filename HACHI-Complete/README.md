@@ -58,6 +58,7 @@ chmod +x HACHI-INSTALLER.sh
 - ✅ Triple-black visual design inspired by the NVIDIA Control Panel
 - ✅ Displays the exact detected GPU model right in the header
 - ✅ Real-time VR headset detection
+- ✅ Dedicated DisplayPort/HDMI status indicator so you know the display cable is live
 - ✅ Driver status monitoring
 - ✅ SteamVR launch integration
 - ✅ Finger tracking controls (start/stop/calibrate/test)
@@ -168,6 +169,18 @@ python3 ~/.local/share/hachi/hachi_control.py
 lsusb | grep -i htc
 
 # Should show: Bus XXX Device XXX: ID 0bb4:0abb HTC (...)
+```
+
+### Display Cable Still Shows "Not Detected"?
+```bash
+# Check kernel DRM connector status
+grep . /sys/class/drm/card*-DP-*/status /sys/class/drm/card*-HDMI-*/status 2>/dev/null
+
+# If nothing prints, fall back to xrandr
+xrandr --query | grep -E "connected|HTC|VIVE"
+
+# Make sure the headset's DisplayPort/USB-C cable is firmly connected to the GPU
+# and that the GPU output is active (duplicate or extend your desktop if needed).
 ```
 
 ### Finger Tracking Not Starting?

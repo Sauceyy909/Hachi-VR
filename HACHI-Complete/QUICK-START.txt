@@ -16,6 +16,7 @@
 ✅ Vive Cosmos driver verification and diagnostics
 ✅ HACHI Control Center GUI
 ✅ All dependencies handled automatically
+✅ Automatically removes any previous HACHI install before deploying the new build
 
 🚀 QUICK START (30 Seconds!)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -101,6 +102,7 @@ VR DRIVER:
 CONTROL CENTER:
   • Beautiful GPU-adaptive UI
   • Real-time headset detection
+  • Display cable health indicator (DisplayPort/HDMI)
   • Driver status monitoring
   • One-click SteamVR launch
   • Finger tracking controls

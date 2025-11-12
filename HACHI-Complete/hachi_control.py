@@ -48,13 +48,15 @@ class HachiControl(tk.Tk):
         self.finger_tracker = None
         if FINGER_TRACKING_AVAILABLE:
             self.finger_tracker = get_tracker()
-        
+
         # VR state
         self.headset_connected = False
+        self.display_cable_connected = False
         self.driver_installed = False
         self.steamvr_running = False
         self.cosmos_driver_path = None
         self.installer_driver_status = None
+        self.display_connection_details = []
         self.steamvr_search_paths = [
             Path.home() / ".local/share/Steam/steamapps/common/SteamVR",
             Path.home() / ".steam/steamapps/common/SteamVR",
@@ -209,6 +211,7 @@ class HachiControl(tk.Tk):
 
         # Status indicators
         self.headset_status = self.create_status_indicator(status_frame, "Headset Connected")
+        self.display_status = self.create_status_indicator(status_frame, "Display Cable Detected")
         self.driver_status = self.create_status_indicator(status_frame, "Driver Installed")
         self.steamvr_status = self.create_status_indicator(status_frame, "SteamVR Running")
         
@@ -999,6 +1002,9 @@ echo "Run: hachi"
             try:
                 # Check headset connection
                 self.headset_connected = self.check_headset_connected()
+                display_state, display_details = self.check_display_cable_connected()
+                self.display_cable_connected = display_state
+                self.display_connection_details = display_details
 
                 # Check driver
                 self.driver_installed = self.check_driver_installed()
@@ -1026,7 +1032,61 @@ echo "Run: hachi"
             return '0bb4:0abb' in result.stdout or '28de:' in result.stdout
         except:
             return False
-    
+
+    def check_display_cable_connected(self):
+        """Check if the headset's DisplayPort/HDMI link is active"""
+        any_connected = False
+        details = []
+
+        drm_path = Path('/sys/class/drm')
+        if drm_path.exists():
+            for status_file in sorted(drm_path.glob('card*-DP-*/status')):
+                connector_name = status_file.parent.name
+                try:
+                    status = status_file.read_text().strip()
+                except OSError:
+                    status = 'unknown'
+                details.append(f"{connector_name}: {status}")
+                if status.lower() == 'connected':
+                    any_connected = True
+
+            # Some Cosmos setups present as HDMI; include those too
+            for status_file in sorted(drm_path.glob('card*-HDMI-*/status')):
+                connector_name = status_file.parent.name
+                try:
+                    status = status_file.read_text().strip()
+                except OSError:
+                    status = 'unknown'
+                details.append(f"{connector_name}: {status}")
+                if status.lower() == 'connected':
+                    any_connected = True
+
+        # Fallback to xrandr for descriptive output when DRM nodes unavailable
+        if not details:
+            try:
+                result = subprocess.run(
+                    ['xrandr', '--query'],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                    check=False,
+                )
+                for line in result.stdout.splitlines():
+                    lower = line.lower()
+                    if ' connected' in line:
+                        details.append(line.strip())
+                        if any(token in lower for token in ['dp', 'displayport', 'vive', 'htc', 'cosmos']):
+                            any_connected = True
+            except FileNotFoundError:
+                details.append('xrandr not available; unable to query display links')
+            except Exception as exc:
+                details.append(f'xrandr query failed: {exc}')
+
+        if not details:
+            details.append('No display connector information available')
+
+        return any_connected, details
+
     def check_driver_installed(self):
         """Check if driver is installed"""
         driver_candidate = self.locate_cosmos_driver()
@@ -1044,9 +1104,10 @@ echo "Run: hachi"
     def update_status_indicators(self):
         """Update all status indicators"""
         self.update_status_indicator(self.headset_status, self.headset_connected)
+        self.update_status_indicator(self.display_status, self.display_cable_connected)
         self.update_status_indicator(self.driver_status, self.driver_installed)
         self.update_status_indicator(self.steamvr_status, self.steamvr_running)
-    
+
     def update_system_info(self):
         """Update system information display"""
         info = []
@@ -1054,6 +1115,7 @@ echo "Run: hachi"
         info.append(f"GPU Vendor: {self.gpu_vendor.upper()}")
         info.append(f"GPU Model: {self.gpu_model}")
         info.append(f"Headset: {'Connected' if self.headset_connected else 'Not Connected'}")
+        info.append(f"Display Cable: {'Detected' if self.display_cable_connected else 'Not Detected'}")
         info.append(f"Driver: {'Installed' if self.driver_installed else 'Not Installed'}")
         info.append(f"SteamVR: {'Running' if self.steamvr_running else 'Not Running'}")
 
@@ -1086,7 +1148,11 @@ echo "Run: hachi"
                     info.append(line)
         except:
             info.append("Could not read USB devices")
-        
+
+        if self.display_connection_details:
+            info.append(f"\n=== DISPLAY LINKS ===")
+            info.extend(self.display_connection_details)
+
         self.info_text.delete('1.0', tk.END)
         self.info_text.insert('1.0', '\n'.join(info))
 
@@ -1114,13 +1180,25 @@ echo "Run: hachi"
     def check_connection(self):
         """Manual connection check"""
         self.headset_connected = self.check_headset_connected()
+        display_state, display_details = self.check_display_cable_connected()
+        self.display_cable_connected = display_state
+        self.display_connection_details = display_details
         self.update_status_indicators()
         self.update_system_info()
-        
-        if self.headset_connected:
-            messagebox.showinfo("Connection", "VR headset detected!")
+
+        if self.headset_connected and self.display_cable_connected:
+            messagebox.showinfo("Connection", "VR headset and display link detected!")
+        elif self.headset_connected and not self.display_cable_connected:
+            messagebox.showwarning(
+                "Connection",
+                "USB link detected, but no active DisplayPort/HDMI link found.\n"
+                "Check the headset's display cable and GPU output.",
+            )
         else:
-            messagebox.showwarning("Connection", "No VR headset detected.\nMake sure it's plugged in via USB and DisplayPort.")
+            messagebox.showwarning(
+                "Connection",
+                "No VR headset detected.\nMake sure USB and display cables are both connected.",
+            )
     
     def view_logs(self):
         """View driver logs"""
