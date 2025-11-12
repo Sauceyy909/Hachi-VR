@@ -13,6 +13,95 @@ BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
+INSTALL_SUCCESS=false
+
+cleanup_message() {
+    if [ "$INSTALL_SUCCESS" != "true" ]; then
+        echo ""
+        echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${RED} Installation did not finish cleanly.${NC}"
+        echo -e "${YELLOW} Please review the errors above, resolve them, and run ./INSTALL again.${NC}"
+        echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    fi
+}
+
+trap cleanup_message EXIT
+
+write_driver_status() {
+    local status="$1"
+    local driver_path="$2"
+    local repair_attempted="$3"
+    local repair_result="$4"
+    local repair_message="$5"
+
+    local path_json="null"
+    if [ -n "$driver_path" ]; then
+        path_json="\"$driver_path\""
+    fi
+
+    mkdir -p "$HACHI_DIR"
+    cat > "$HACHI_DIR/driver_status.json" <<STATUS_EOF
+{
+  "status": "${status}",
+  "path": ${path_json},
+  "checked_at": "$(date --iso-8601=seconds)",
+  "repair_attempted": "${repair_attempted}",
+  "repair_result": "${repair_result}",
+  "repair_message": "${repair_message}"
+}
+STATUS_EOF
+}
+
+select_steamvr_target() {
+    local target=""
+    for candidate in "${STEAMVR_SEARCH_PATHS[@]}"; do
+        local parent_dir
+        parent_dir="$(dirname "${candidate}")"
+        if [ -d "$parent_dir" ]; then
+            target="$candidate"
+            break
+        fi
+    done
+
+    if [ -z "$target" ]; then
+        target="${STEAMVR_SEARCH_PATHS[0]}"
+    fi
+
+    echo "$target"
+}
+
+attempt_steamvr_repair() {
+    local target_dir="$1"
+
+    if ! command -v steamcmd &> /dev/null; then
+        echo -e "${YELLOW}  ! steamcmd is not installed; skipping automatic SteamVR repair${NC}"
+        echo -e "${YELLOW}    Install steamcmd (package: steamcmd) and re-run ./INSTALL to retry.${NC}"
+        return 2
+    fi
+
+    mkdir -p "$target_dir"
+    echo -e "${CYAN}  • Validating SteamVR files via steamcmd...${NC}"
+    if steamcmd +login anonymous +force_install_dir "$target_dir" +app_update 250820 validate +quit; then
+        echo -e "${GREEN}  ✓ SteamVR validation completed${NC}"
+        return 0
+    else
+        echo -e "${YELLOW}  ! steamcmd validation did not complete successfully${NC}"
+        return 1
+    fi
+}
+
+locate_cosmos_driver() {
+    for candidate in "${STEAMVR_SEARCH_PATHS[@]}"; do
+        local driver_candidate="$candidate/drivers/vive_cosmos/bin/linux64/driver_cosmos.so"
+        if [ -f "$driver_candidate" ]; then
+            echo "$driver_candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 clear
 
 echo -e "${CYAN}"
@@ -295,42 +384,69 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 
 COSMOS_DRIVER_PATH=""
 STEAMVR_ROOT=""
+REPAIR_ATTEMPTED="no"
+REPAIR_RESULT="not-needed"
+REPAIR_MESSAGE="detected-on-disk"
 
-for candidate in "${STEAMVR_SEARCH_PATHS[@]}"; do
-    if [ -f "$candidate/drivers/vive_cosmos/bin/linux64/driver_cosmos.so" ]; then
-        COSMOS_DRIVER_PATH="$candidate/drivers/vive_cosmos/bin/linux64/driver_cosmos.so"
-        STEAMVR_ROOT="$candidate"
-        break
-    fi
-done
+if driver_path=$(locate_cosmos_driver); then
+    COSMOS_DRIVER_PATH="$driver_path"
+    STEAMVR_ROOT="$(dirname "$COSMOS_DRIVER_PATH")"
+    STEAMVR_ROOT="$(dirname "$STEAMVR_ROOT")"
+    STEAMVR_ROOT="$(dirname "$STEAMVR_ROOT")"
+fi
 
 if [ -n "$COSMOS_DRIVER_PATH" ]; then
     echo -e "${GREEN}  ✓ Found SteamVR Vive Cosmos driver at:${NC}"
     echo -e "      $COSMOS_DRIVER_PATH"
     echo -e "${GREEN}  ✓ Leaving official driver untouched${NC}"
 
-    mkdir -p "$HACHI_DIR"
-    cat > "$HACHI_DIR/driver_status.json" <<STATUS_EOF
-{
-  "status": "found",
-  "path": "${COSMOS_DRIVER_PATH}",
-  "checked_at": "$(date --iso-8601=seconds)"
-}
-STATUS_EOF
+    write_driver_status "found" "$COSMOS_DRIVER_PATH" "$REPAIR_ATTEMPTED" "$REPAIR_RESULT" "$REPAIR_MESSAGE"
 else
     echo -e "${RED}  ✗ SteamVR's Vive Cosmos driver was not found${NC}"
     echo -e "${YELLOW}    • Launch SteamVR once to let it deploy device drivers${NC}"
-    echo -e "${YELLOW}    • Or reinstall SteamVR / the Vive Cosmos support package${NC}"
-    echo -e "${YELLOW}    • HACHI will continue but cannot control the headset without it${NC}"
+    echo -e "${YELLOW}    • HACHI will try to repair the installation automatically${NC}"
 
-    mkdir -p "$HACHI_DIR"
-    cat > "$HACHI_DIR/driver_status.json" <<STATUS_EOF
-{
-  "status": "missing",
-  "path": null,
-  "checked_at": "$(date --iso-8601=seconds)"
-}
-STATUS_EOF
+    REPAIR_ATTEMPTED="yes"
+    REPAIR_RESULT="skipped"
+    REPAIR_MESSAGE="steamcmd-unavailable"
+
+    REPAIR_TARGET="$(select_steamvr_target)"
+    if [ -n "$REPAIR_TARGET" ]; then
+        echo -e "${CYAN}  • Attempting to repair SteamVR at:${NC}"
+        echo -e "      $REPAIR_TARGET"
+        if attempt_steamvr_repair "$REPAIR_TARGET"; then
+            REPAIR_RESULT="succeeded"
+            REPAIR_MESSAGE="steamcmd-validated"
+        else
+            REPAIR_EXIT=$?
+            if [ "$REPAIR_EXIT" -eq 2 ]; then
+                REPAIR_RESULT="skipped"
+                REPAIR_MESSAGE="steamcmd-not-installed"
+            else
+                REPAIR_RESULT="failed"
+                REPAIR_MESSAGE="steamcmd-error"
+            fi
+        fi
+
+        if driver_path=$(locate_cosmos_driver); then
+            COSMOS_DRIVER_PATH="$driver_path"
+            STEAMVR_ROOT="$(dirname "$COSMOS_DRIVER_PATH")"
+            STEAMVR_ROOT="$(dirname "$STEAMVR_ROOT")"
+            STEAMVR_ROOT="$(dirname "$STEAMVR_ROOT")"
+        fi
+    fi
+
+    if [ -n "$COSMOS_DRIVER_PATH" ]; then
+        echo -e "${GREEN}  ✓ SteamVR driver available after repair:${NC}"
+        echo -e "      $COSMOS_DRIVER_PATH"
+        REPAIR_RESULT="${REPAIR_RESULT:-succeeded}"
+        write_driver_status "found" "$COSMOS_DRIVER_PATH" "$REPAIR_ATTEMPTED" "$REPAIR_RESULT" "$REPAIR_MESSAGE"
+    else
+        echo -e "${YELLOW}  ! Vive Cosmos driver still missing${NC}"
+        echo -e "${YELLOW}    • Launch Steam and run a SteamVR file validation${NC}"
+        echo -e "${YELLOW}    • Or reinstall SteamVR from the store page${NC}"
+        write_driver_status "missing" "" "$REPAIR_ATTEMPTED" "$REPAIR_RESULT" "$REPAIR_MESSAGE"
+    fi
 fi
 
 echo ""
@@ -339,7 +455,7 @@ echo -e "${CYAN}[10/12] Installing finger tracking module...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 if [ -f "finger_tracking.py" ]; then
-    cp finger_tracking.py "$HACHI_DIR/"
+    cp finger_tracking.py "$HACHI_DIR/finger_tracking.py"
     chmod +x "$HACHI_DIR/finger_tracking.py"
     echo -e "${GREEN}  ✓ Finger tracking module installed${NC}"
     echo -e "${GREEN}  ✓ Real OpenCV-based hand detection${NC}"
@@ -355,8 +471,19 @@ echo -e "${CYAN}[11/12] Installing HACHI Control Center...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 if [ -f "hachi_control.py" ]; then
-    cp hachi_control.py "$BIN_DIR/hachi"
+    cp hachi_control.py "$HACHI_DIR/hachi_control.py"
+    chmod +x "$HACHI_DIR/hachi_control.py"
+
+    cat > "$BIN_DIR/hachi" <<LAUNCHER_EOF
+#!/usr/bin/env bash
+set -e
+APP_DIR="$HACHI_DIR"
+export PYTHONPATH="\$APP_DIR:\$PYTHONPATH"
+exec python3 "\$APP_DIR/hachi_control.py" "\$@"
+LAUNCHER_EOF
+
     chmod +x "$BIN_DIR/hachi"
+
     echo -e "${GREEN}  ✓ Control center installed${NC}"
     echo -e "${GREEN}  ✓ GPU-adaptive themes enabled${NC}"
     echo -e "${GREEN}  ✓ Real-time monitoring active${NC}"
@@ -445,61 +572,67 @@ $SUDO_CMD usermod -a -G video $USER 2>/dev/null || $SUDO_CMD gpasswd -a $USER vi
 echo -e "${GREEN}  ✓ User added to plugdev group${NC}"
 echo -e "${GREEN}  ✓ User added to video group${NC}"
 
-    echo -e "${GREEN}  ✓ Native SteamVR integration verified${NC}"
-    echo -e "${GREEN}  ✓ Driver status recorded for Control Center${NC}"
+echo -e "${GREEN}  ✓ Native SteamVR integration verified${NC}"
+echo -e "${GREEN}  ✓ Driver status recorded for Control Center${NC}"
 
-echo ""
-echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║                                                              ║${NC}"
-echo -e "${GREEN}║              🎉 INSTALLATION COMPLETE! 🎉                    ║${NC}"
-echo -e "${GREEN}║                                                              ║${NC}"
-echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${YELLOW}║  ⚠️  IMPORTANT: A SYSTEM REBOOT IS REQUIRED! ⚠️            ║${NC}"
-echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${CYAN}Rebooting ensures USB permissions and drivers reload correctly.${NC}"
-echo ""
-echo -e "${GREEN}What was installed:${NC}"
-echo -e "  ${CYAN}✓${NC} SteamVR Vive Cosmos driver verification"
-echo -e "  ${CYAN}✓${NC} Real Finger Tracking (OpenCV-based)"
-echo -e "  ${CYAN}✓${NC} HACHI Control Center GUI"
-echo -e "  ${CYAN}✓${NC} All Dependencies & Libraries"
-echo -e "  ${CYAN}✓${NC} USB Permissions"
-echo ""
-echo -e "${GREEN}After rebooting:${NC}"
-echo -e "  ${MAGENTA}1.${NC} Find ${YELLOW}'HACHI Control Center'${NC} in your applications menu"
-echo -e "  ${MAGENTA}2.${NC} Or run: ${YELLOW}hachi${NC}"
-echo -e "  ${MAGENTA}3.${NC} Connect your VR headset"
-echo -e "  ${MAGENTA}4.${NC} Launch SteamVR from HACHI"
-echo -e "  ${MAGENTA}5.${NC} Enable finger tracking in the Finger Tracking tab"
-echo ""
-echo -e "${CYAN}Features ready to use:${NC}"
-echo -e "  • Real-time hand detection with OpenCV"
-echo -e "  • Finger counting (0-5 per hand)"
-echo -e "  • SteamVR driver health checks"
-echo -e "  • GPU-adaptive themes"
-echo -e "  • SteamVR integration"
-echo -e "  • System monitoring"
-echo ""
-echo -e "${GREEN}Documentation:${NC}"
-echo -e "  • README.md - Complete guide"
-echo -e "  • QUICK-START.txt - Quick reference"
-echo ""
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}         Thank you for using HACHI VR! 🚀${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-read -p "Press ENTER to continue..."
+finish_installation_summary() {
+    INSTALL_SUCCESS=true
 
-echo ""
-read -r -p "Would you like to reboot now to finalize the installation? [y/N]: " REBOOT_CHOICE
-if [[ $REBOOT_CHOICE =~ ^[Yy]$ ]]; then
-    echo -e "${CYAN}Requesting system reboot...${NC}"
-    $SUDO_CMD reboot || echo -e "${YELLOW}  ! Reboot command failed. Please reboot manually.${NC}"
-else
-    echo -e "${YELLOW}Please reboot your system manually to complete the installation.${NC}"
-fi
+    echo ""
+    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                                                              ║${NC}"
+    echo -e "${GREEN}║              🎉 INSTALLATION COMPLETE! 🎉                    ║${NC}"
+    echo -e "${GREEN}║                                                              ║${NC}"
+    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║  ⚠️  IMPORTANT: A SYSTEM REBOOT IS REQUIRED! ⚠️            ║${NC}"
+    echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${CYAN}Rebooting ensures USB permissions and drivers reload correctly.${NC}"
+    echo ""
+    echo -e "${GREEN}What was installed:${NC}"
+    echo -e "  ${CYAN}✓${NC} SteamVR Vive Cosmos driver verification"
+    echo -e "  ${CYAN}✓${NC} Real Finger Tracking (OpenCV-based)"
+    echo -e "  ${CYAN}✓${NC} HACHI Control Center GUI"
+    echo -e "  ${CYAN}✓${NC} All Dependencies & Libraries"
+    echo -e "  ${CYAN}✓${NC} USB Permissions"
+    echo ""
+    echo -e "${GREEN}After rebooting:${NC}"
+    echo -e "  ${MAGENTA}1.${NC} Find ${YELLOW}'HACHI Control Center'${NC} in your applications menu"
+    echo -e "  ${MAGENTA}2.${NC} Or run: ${YELLOW}hachi${NC}"
+    echo -e "  ${MAGENTA}3.${NC} Connect your VR headset"
+    echo -e "  ${MAGENTA}4.${NC} Launch SteamVR from HACHI"
+    echo -e "  ${MAGENTA}5.${NC} Enable finger tracking in the Finger Tracking tab"
+    echo ""
+    echo -e "${CYAN}Features ready to use:${NC}"
+    echo -e "  • Real-time hand detection with OpenCV"
+    echo -e "  • Finger counting (0-5 per hand)"
+    echo -e "  • SteamVR driver health checks"
+    echo -e "  • GPU-adaptive themes"
+    echo -e "  • SteamVR integration"
+    echo -e "  • System monitoring"
+    echo ""
+    echo -e "${GREEN}Documentation:${NC}"
+    echo -e "  • README.md - Complete guide"
+    echo -e "  • QUICK-START.txt - Quick reference"
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}         Thank you for using HACHI VR! 🚀${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    read -p "Press ENTER to continue..."
 
-echo ""
+    echo ""
+    read -r -p "Would you like to reboot now to finalize the installation? [y/N]: " REBOOT_CHOICE
+    if [[ $REBOOT_CHOICE =~ ^[Yy]$ ]]; then
+        echo -e "${CYAN}Requesting system reboot...${NC}"
+        $SUDO_CMD reboot || echo -e "${YELLOW}  ! Reboot command failed. Please reboot manually.${NC}"
+    else
+        echo -e "${YELLOW}Please reboot your system manually to complete the installation.${NC}"
+    fi
+
+    echo ""
+}
+
+finish_installation_summary

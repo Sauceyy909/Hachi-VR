@@ -93,7 +93,8 @@ VR DRIVER:
   • Verifies SteamVR's Vive Cosmos driver is installed
   • Records diagnostics for the Control Center dashboard
   • Leaves Valve's binaries untouched (no custom forks)
-  • Warns you to reinstall or launch SteamVR if anything is missing
+  • Automatically runs a steamcmd validation when the driver is missing (and reports if steamcmd is unavailable)
+  • Warns you to reinstall or launch SteamVR if anything is missing after repair
   • Installs USB permissions so the official driver can talk to the headset
 
 CONTROL CENTER:
@@ -130,10 +131,10 @@ The installer automatically:
   2. Installs system packages (OpenCV, USB tools, etc.)
   3. Installs Python packages (numpy, opencv-contrib, etc.)
   4. Removes any previous HACHI install (user and system locations)
-  5. Creates directory structure
+  5. Creates directory structure in ~/.local/share/hachi and ~/.local/bin
   6. Installs finger tracking module
-  7. Installs control center and links /usr/local/bin/hachi
-  8. Verifies SteamVR's Vive Cosmos driver and logs diagnostics
+  7. Installs the control center launcher and links /usr/local/bin/hachi
+  8. Verifies SteamVR's Vive Cosmos driver, runs steamcmd validation if it's missing, and logs diagnostics
   9. Configures USB permissions
   10. Creates desktop shortcut
   11. Prompts for reboot so everything reloads cleanly
@@ -158,6 +159,9 @@ Input: Just your sudo password
 
   # Or find it in applications menu
   "HACHI Control Center"
+
+  # Direct path if you prefer Python
+  python3 ~/.local/share/hachi/hachi_control.py
 
   # Start finger tracking
   Open HACHI → Finger Tracking tab → Start Tracking
@@ -193,8 +197,8 @@ Driver:
   • Source: Official SteamVR Vive Cosmos driver binaries
   • Validation: Manifest + binary presence check
   • Permissions: USB HID udev rules and plugdev/video groups
-  • Monitoring: Control Center reads driver_status.json + SteamVR paths
-  • Recovery: Installer guides you to relaunch or reinstall SteamVR when missing
+  • Monitoring: Control Center reads driver_status.json (including repair attempts) + SteamVR paths
+  • Recovery: Installer automatically runs steamcmd validation and guides you if manual action is still needed
 
 🔧 TROUBLESHOOTING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -210,6 +214,10 @@ Finger tracking not starting?
 Permissions issues?
   → Reboot your PC!
   → Check: groups (should show "plugdev")
+
+SteamVR driver missing?
+  → Install steamcmd (apt install steamcmd / pacman -S steamcmd)
+  → Re-run ./HACHI-INSTALLER.sh to trigger automatic validation
 
 📚 DOCUMENTATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

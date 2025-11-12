@@ -41,7 +41,8 @@ chmod +x HACHI-INSTALLER.sh
 - ✅ Detects the official SteamVR Vive Cosmos driver on disk
 - ✅ Leaves Valve's binaries untouched and ready to run
 - ✅ Records diagnostics in `~/.local/share/hachi/driver_status.json`
-- ⚠️ Prompts you to reinstall/launch SteamVR if the driver is missing
+- ✅ Automatically runs a `steamcmd` validation when the driver is missing (and tells you if steamcmd is unavailable)
+- ⚠️ Prompts you to reinstall/launch SteamVR if the driver is still missing after repair
 
 ### 2. **Real Finger Tracking System**
 - ✅ OpenCV-based hand detection
@@ -63,6 +64,7 @@ chmod +x HACHI-INSTALLER.sh
 - ✅ Live hand detection display
 - ✅ Settings management
 - ✅ Log viewing
+- ✅ Installed to `~/.local/share/hachi` with a wrapper script in `~/.local/bin/hachi`
 
 ### 4. **All Dependencies**
 - ✅ Python packages (OpenCV, NumPy, etc.)
@@ -90,10 +92,10 @@ The installer automatically does:
 2. ✅ Installs system packages (pacman/apt)
 3. ✅ Installs Python packages (pip)
 4. ✅ Removes any previous HACHI installation automatically (user and system locations)
-5. ✅ Creates a fresh directory structure
-6. ✅ Verifies the SteamVR Vive Cosmos driver is installed
+5. ✅ Creates a fresh directory structure in `~/.local/share/hachi` and `~/.local/bin`
+6. ✅ Verifies the SteamVR Vive Cosmos driver and triggers an automatic repair via `steamcmd` when it is missing
 7. ✅ Installs the finger tracking module
-8. ✅ Installs the HACHI Control Center command and links `/usr/local/bin/hachi`
+8. ✅ Installs the HACHI Control Center launcher script and links `/usr/local/bin/hachi`
 9. ✅ Adds shortcuts and updates your PATH
 10. ✅ Captures driver manifests/settings for diagnostics (without touching SteamVR files)
 11. ✅ Configures USB permissions and user groups
@@ -122,6 +124,9 @@ Click "HACHI Control Center"
 
 # Method 2: From terminal
 hachi
+
+# Method 3: Run the GUI directly
+python3 ~/.local/share/hachi/hachi_control.py
 ```
 
 ### Using Finger Tracking
@@ -178,6 +183,17 @@ python3 ~/.local/share/hachi/finger_tracking.py
 groups
 
 # Should include "plugdev"
+```
+
+### SteamVR driver still missing?
+```bash
+# Install steamcmd if the installer reported it was unavailable
+sudo apt install steamcmd      # Debian/Ubuntu
+# or
+sudo pacman -S steamcmd        # Arch / Manjaro
+
+# Re-run the installer to trigger a fresh SteamVR validation
+./HACHI-INSTALLER.sh
 ```
 
 ## 🎨 Features Overview

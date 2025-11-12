@@ -954,6 +954,26 @@ echo "Run: hachi"
         except Exception:
             return None
 
+    def format_installer_status(self, status_data):
+        """Create a human-friendly summary for installer diagnostics"""
+        if not status_data:
+            return None
+
+        status_label = status_data.get('status', 'unknown')
+        checked_at = status_data.get('checked_at', 'unknown time')
+        summary = f"{status_label} @ {checked_at}"
+
+        repair_attempted = (status_data.get('repair_attempted') or '').lower()
+        repair_result = status_data.get('repair_result') or 'unknown'
+        repair_message = status_data.get('repair_message') or ''
+
+        if repair_attempted == 'yes':
+            summary += f" — repair {repair_result}"
+            if repair_message:
+                summary += f" ({repair_message})"
+
+        return summary
+
     def monitor_loop(self):
         """Monitor VR system status"""
         while True:
@@ -1025,10 +1045,9 @@ echo "Run: hachi"
 
         info.append(f"Driver Path: {driver_display}")
 
-        if self.installer_driver_status:
-            status_label = self.installer_driver_status.get('status', 'unknown')
-            checked_at = self.installer_driver_status.get('checked_at', 'unknown time')
-            info.append(f"Installer Check: {status_label} @ {checked_at}")
+        installer_summary = self.format_installer_status(self.installer_driver_status)
+        if installer_summary:
+            info.append(f"Installer Check: {installer_summary}")
         else:
             info.append("Installer Check: No data")
 
@@ -1053,10 +1072,9 @@ echo "Run: hachi"
             self.driver_path_var.set(driver_display)
 
         if hasattr(self, 'driver_check_var') and self.driver_check_var is not None:
-            if self.installer_driver_status:
-                status_label = self.installer_driver_status.get('status', 'unknown')
-                checked_at = self.installer_driver_status.get('checked_at', 'unknown time')
-                self.driver_check_var.set(f"{status_label} @ {checked_at}")
+            installer_summary = self.format_installer_status(self.installer_driver_status)
+            if installer_summary:
+                self.driver_check_var.set(installer_summary)
             else:
                 self.driver_check_var.set("No installer record found")
     
