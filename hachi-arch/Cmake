@@ -1,0 +1,42 @@
+# Makefile for HACHI VR Native Tools
+# Place this in your source directory (e.g. hachi-safe/ or project root).
+# For developer use: use "Build Native Software (make)" in Developer Tab
+# After build, binaries will be auto-copied to ~/.local/bin by the GUI tool.
+
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra -O2
+LDFLAGS = -lusb-1.0 -lpthread
+TARGET = cosmos_bridge
+
+PYTHON = python3
+
+PYTOOLS = controller_manager.py \
+          cosmos_monitor.py \
+          enhanced_tracking.py
+
+all: $(TARGET) pytools
+
+$(TARGET): cosmos_bridge.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
+
+pytools: $(PYTOOLS)
+	@for tool in $(PYTOOLS); do chmod +x "$$tool"; done
+	@echo "Python helper scripts marked executable!"
+
+install:
+	@echo "Installing native and python tools to ~/.local/bin"
+	install -m 755 $(TARGET) $(HOME)/.local/bin/
+	for file in $(PYTOOLS); do install -m 755 $$file $(HOME)/.local/bin/; done
+
+clean:
+	rm -f $(TARGET)
+	@echo "Cleaned build files!"
+
+help:
+	@echo "Available targets:"
+	@echo "  make        - Build $(TARGET) and Python scripts (set as executable)"
+	@echo "  make install- Copy binaries/scripts to ~/.local/bin for HACHI GUI use"
+	@echo "  make clean  - Remove build artifacts"
+	@echo "  make help   - Show this help"
+
+.PHONY: all pytools clean help install
