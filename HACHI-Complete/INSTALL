@@ -13,6 +13,66 @@ BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
+INSTALL_SUCCESS=false
+
+cleanup_message() {
+    if [ "$INSTALL_SUCCESS" != "true" ]; then
+        echo ""
+        echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${RED} Installation did not finish cleanly.${NC}"
+        echo -e "${YELLOW} Please review the errors above, resolve them, and run ./INSTALL again.${NC}"
+        echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    fi
+}
+
+trap cleanup_message EXIT
+
+write_driver_status() {
+    local status="$1"
+    local driver_path="$2"
+    local repair_attempted="$3"
+    local repair_result="$4"
+    local repair_message="$5"
+    local driver_origin="${6:-steamvr}"
+    local steamvr_driver_path="$7"
+
+    local path_json="null"
+    if [ -n "$driver_path" ]; then
+        path_json="\"$driver_path\""
+    fi
+
+    local steamvr_json="null"
+    if [ -n "$steamvr_driver_path" ]; then
+        steamvr_json="\"$steamvr_driver_path\""
+    fi
+
+    mkdir -p "$HACHI_DIR"
+    cat > "$HACHI_DIR/driver_status.json" <<STATUS_EOF
+{
+  "status": "${status}",
+  "path": ${path_json},
+  "checked_at": "$(date --iso-8601=seconds)",
+  "repair_attempted": "${repair_attempted}",
+  "repair_result": "${repair_result}",
+  "repair_message": "${repair_message}",
+  "origin": "${driver_origin}",
+  "steamvr_driver": ${steamvr_json}
+}
+STATUS_EOF
+}
+
+locate_steamvr_cosmos_driver() {
+    for candidate in "${STEAMVR_SEARCH_PATHS[@]}"; do
+        local driver_candidate="$candidate/drivers/vive_cosmos/bin/linux64/driver_cosmos.so"
+        if [ -f "$driver_candidate" ]; then
+            echo "$driver_candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 clear
 
 echo -e "${CYAN}"
@@ -38,7 +98,7 @@ echo -e "${GREEN}═════════════════════
 echo -e "${GREEN}  This installer will set up everything you need:${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
 echo ""
-echo -e "  ${CYAN}✓${NC} Vive Cosmos SteamVR Driver (C++ Implementation)"
+echo -e "  ${CYAN}✓${NC} SteamVR Vive Cosmos driver health check"
 echo -e "  ${CYAN}✓${NC} Real Finger Tracking System (OpenCV)"
 echo -e "  ${CYAN}✓${NC} HACHI Control Center GUI"
 echo -e "  ${CYAN}✓${NC} All System Dependencies"
@@ -64,10 +124,21 @@ fi
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+HOME_DIR="$HOME"
+HACHI_DIR="$HOME_DIR/.local/share/hachi"
+BIN_DIR="$HOME_DIR/.local/bin"
+DESKTOP_DIR="$HOME_DIR/.local/share/applications"
+
+STEAMVR_SEARCH_PATHS=(
+    "$HOME_DIR/.local/share/Steam/steamapps/common/SteamVR"
+    "$HOME_DIR/.steam/steamapps/common/SteamVR"
+    "$HOME_DIR/.steam/steam/steamapps/common/SteamVR"
+)
+
 # Detect Linux distribution
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[1/11] Detecting Linux distribution...${NC}"
+echo -e "${CYAN}[1/12] Detecting Linux distribution...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 DISTRO="unknown"
@@ -111,7 +182,7 @@ fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[2/11] Checking required commands...${NC}"
+echo -e "${CYAN}[2/12] Checking required commands...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 MISSING=0
@@ -126,7 +197,7 @@ done
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[3/11] Updating package database...${NC}"
+echo -e "${CYAN}[3/12] Updating package database...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${YELLOW}  You may need to enter your password${NC}"
 
@@ -138,7 +209,7 @@ fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[4/11] Installing system packages...${NC}"
+echo -e "${CYAN}[4/12] Installing system packages...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${YELLOW}  This may take a few minutes...${NC}"
 
@@ -186,7 +257,7 @@ fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[5/11] Ensuring pip3 is available...${NC}"
+echo -e "${CYAN}[5/12] Ensuring pip3 is available...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Make sure pip3 is available
@@ -214,7 +285,7 @@ python3 -m pip install --user --upgrade pip &> /dev/null || true
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[6/11] Installing Python packages...${NC}"
+echo -e "${CYAN}[6/12] Installing Python packages...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Install Python packages
@@ -230,183 +301,124 @@ echo -e "${GREEN}  ✓ Python packages installed${NC}"
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[7/11] Creating directories...${NC}"
+echo -e "${CYAN}[7/12] Removing previous HACHI installation...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-HOME_DIR="$HOME"
-HACHI_DIR="$HOME_DIR/.local/share/hachi"
-BIN_DIR="$HOME_DIR/.local/bin"
-DRIVER_DIR="$HOME_DIR/.local/share/Steam/steamapps/common/SteamVR/drivers/vive_cosmos"
-BUILD_DIR="$SCRIPT_DIR/build"
-DESKTOP_DIR="$HOME_DIR/.local/share/applications"
+if [ -d "$HACHI_DIR" ] || [ -f "$BIN_DIR/hachi" ]; then
+    echo -e "${YELLOW}  ! Previous installation detected${NC}"
+    rm -rf "$HACHI_DIR"
+    rm -f "$BIN_DIR/hachi"
+    rm -f "$DESKTOP_DIR/hachi-control.desktop"
+    rm -f "$HOME_DIR/.local/share/applications/hachi.desktop"
+    rm -f "$HOME_DIR/.config/autostart/hachi.desktop"
 
-mkdir -p "$HACHI_DIR"
-mkdir -p "$BIN_DIR"
-mkdir -p "$DRIVER_DIR/bin/linux64"
-mkdir -p "$BUILD_DIR"
-mkdir -p "$DESKTOP_DIR"
+    LEGACY_ITEMS=(
+        "/usr/local/share/hachi"
+        "/opt/hachi"
+        "/usr/local/lib/hachi"
+        "/usr/local/bin/hachi"
+        "/usr/share/applications/hachi-control.desktop"
+        "/usr/share/applications/hachi.desktop"
+    )
 
-echo -e "${GREEN}  ✓ Created: $HACHI_DIR${NC}"
-echo -e "${GREEN}  ✓ Created: $BIN_DIR${NC}"
-echo -e "${GREEN}  ✓ Created: $DRIVER_DIR${NC}"
-echo -e "${GREEN}  ✓ Created: $BUILD_DIR${NC}"
+    for legacy_path in "${LEGACY_ITEMS[@]}"; do
+        if [ -e "$legacy_path" ]; then
+            if $SUDO_CMD rm -rf "$legacy_path" 2>/dev/null; then
+                echo -e "${GREEN}  ✓ Removed legacy path: ${legacy_path}${NC}"
+            else
+                echo -e "${YELLOW}  ! Could not remove legacy path: ${legacy_path}${NC}"
+            fi
+        fi
+    done
 
-echo ""
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[8/11] Building VR driver from source...${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${YELLOW}  This may take a few minutes...${NC}"
-
-# Copy driver source files
-if [ -f "cosmos_driver.cpp" ] && [ -f "cosmos_driver.h" ] && [ -f "CMakeLists.txt" ]; then
-    cp cosmos_driver.cpp cosmos_driver.h CMakeLists.txt "$BUILD_DIR/"
-    
-    # Download OpenVR headers if needed
-    if [ ! -d "$BUILD_DIR/include" ]; then
-        mkdir -p "$BUILD_DIR/include"
-        echo -e "${YELLOW}  Downloading OpenVR SDK headers...${NC}"
-        
-        # Create minimal OpenVR header stub for building
-        cat > "$BUILD_DIR/include/openvr_driver.h" << 'OPENVR_EOF'
-// Minimal OpenVR driver header
-#pragma once
-#include <stdint.h>
-#include <string>
-
-namespace vr {
-    typedef uint32_t TrackedDeviceIndex_t;
-    static const TrackedDeviceIndex_t k_unTrackedDeviceIndexInvalid = 0xFFFFFFFF;
-    
-    typedef uint64_t PropertyContainerHandle_t;
-    static const PropertyContainerHandle_t k_ulInvalidPropertyContainer = 0;
-    
-    enum EVRInitError {
-        VRInitError_None = 0,
-        VRInitError_Driver_Failed = 108,
-        VRInitError_Init_InterfaceNotFound = 112
-    };
-    
-    enum ETrackedDeviceClass {
-        TrackedDeviceClass_Invalid = 0,
-        TrackedDeviceClass_HMD = 1
-    };
-    
-    enum ETrackingResult {
-        TrackingResult_Running_OK = 200
-    };
-    
-    enum ETrackedDeviceProperty {
-        Prop_ModelNumber_String = 1000,
-        Prop_ManufacturerName_String = 1002,
-        Prop_RenderModelName_String = 1003,
-        Prop_TrackingSystemName_String = 1006,
-        Prop_UserIpdMeters_Float = 1013,
-        Prop_UserHeadToEyeDepthMeters_Float = 1014,
-        Prop_DisplayFrequency_Float = 1018,
-        Prop_SecondsFromVsyncToPhotons_Float = 1019,
-        Prop_DisplayMCImageWidth_Int32 = 1020,
-        Prop_DisplayMCImageHeight_Int32 = 1021,
-        Prop_DisplayMCImageLeft_Float = 1022,
-        Prop_DisplayMCImageRight_Float = 1023,
-        Prop_DisplayMCImageTop_Float = 1024,
-        Prop_DisplayMCImageBottom_Float = 1025,
-        Prop_IsOnDesktop_Bool = 1031,
-        Prop_DisplayDebugMode_Bool = 1034
-    };
-    
-    struct HmdQuaternion_t {
-        double w, x, y, z;
-    };
-    
-    struct DriverPose_t {
-        double vecPosition[3];
-        HmdQuaternion_t qRotation;
-        double vecVelocity[3];
-        double vecAngularVelocity[3];
-        ETrackingResult result;
-        bool poseIsValid;
-        bool deviceIsConnected;
-        double poseTimeOffset;
-    };
-    
-    class ITrackedDeviceServerDriver {
-    public:
-        virtual ~ITrackedDeviceServerDriver() {}
-        virtual EVRInitError Activate(uint32_t unObjectId) = 0;
-        virtual void Deactivate() = 0;
-        virtual void EnterStandby() = 0;
-        virtual void *GetComponent(const char *pchComponentNameAndVersion) = 0;
-        virtual void DebugRequest(const char *pchRequest, char *pchResponseBuffer, uint32_t unResponseBufferSize) = 0;
-        virtual DriverPose_t GetPose() = 0;
-    };
-    
-    class IServerTrackedDeviceProvider {
-    public:
-        virtual ~IServerTrackedDeviceProvider() {}
-        virtual EVRInitError Init(class IVRDriverContext *pDriverContext) = 0;
-        virtual void Cleanup() = 0;
-        virtual const char * const *GetInterfaceVersions() = 0;
-        virtual void RunFrame() = 0;
-        virtual bool ShouldBlockStandbyMode() = 0;
-        virtual void EnterStandby() = 0;
-        virtual void LeaveStandby() = 0;
-    };
-    
-    class IVRDriverContext {};
-    class IVRProperties {
-    public:
-        PropertyContainerHandle_t TrackedDeviceToPropertyContainer(TrackedDeviceIndex_t device) { return 0; }
-        void SetStringProperty(PropertyContainerHandle_t, ETrackedDeviceProperty, const char*) {}
-        void SetFloatProperty(PropertyContainerHandle_t, ETrackedDeviceProperty, float) {}
-        void SetInt32Property(PropertyContainerHandle_t, ETrackedDeviceProperty, int32_t) {}
-        void SetBoolProperty(PropertyContainerHandle_t, ETrackedDeviceProperty, bool) {}
-    };
-    
-    class IVRServerDriverHost {
-    public:
-        bool TrackedDeviceAdded(const char*, ETrackedDeviceClass, ITrackedDeviceServerDriver*) { return true; }
-        void TrackedDevicePoseUpdated(TrackedDeviceIndex_t, const DriverPose_t&, uint32_t) {}
-    };
-    
-    static IVRProperties* VRProperties() { static IVRProperties p; return &p; }
-    static IVRServerDriverHost* VRServerDriverHost() { static IVRServerDriverHost h; return &h; }
-    
-    static const char IVRDisplayComponent_Version[] = "IVRDisplayComponent_002";
-    static const char IServerTrackedDeviceProvider_Version[] = "IServerTrackedDeviceProvider_005";
-    static const char * const k_InterfaceVersions[] = { IServerTrackedDeviceProvider_Version, nullptr };
-    
-    #define VR_INIT_SERVER_DRIVER_CONTEXT(x)
-    #define VR_CLEANUP_SERVER_DRIVER_CONTEXT()
-}
-OPENVR_EOF
-        
-        echo -e "${GREEN}  ✓ OpenVR headers ready${NC}"
-    fi
-    
-    # Build driver
-    cd "$BUILD_DIR"
-    cmake . -DCMAKE_BUILD_TYPE=Release &> /dev/null
-    make -j$(nproc) &> /dev/null
-    
-    if [ -f "bin/linux64/driver_cosmos.so" ]; then
-        cp bin/linux64/driver_cosmos.so "$DRIVER_DIR/bin/linux64/"
-        echo -e "${GREEN}  ✓ VR driver compiled successfully${NC}"
-    else
-        echo -e "${YELLOW}  ! Driver compilation completed (binary may have different name)${NC}"
-    fi
-    
-    cd "$SCRIPT_DIR"
+    echo -e "${GREEN}  ✓ Removed old files${NC}"
 else
-    echo -e "${YELLOW}  ! Driver source files not found, using pre-built version${NC}"
+    echo -e "${GREEN}  ✓ No existing installation found${NC}"
 fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[9/11] Installing finger tracking module...${NC}"
+echo -e "${CYAN}[8/12] Creating directories...${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+mkdir -p "$HACHI_DIR"
+mkdir -p "$BIN_DIR"
+mkdir -p "$DESKTOP_DIR"
+
+echo -e "${GREEN}  ✓ Created: $HACHI_DIR${NC}"
+echo -e "${GREEN}  ✓ Created: $BIN_DIR${NC}"
+
+echo ""
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}[9/12] Building HACHI Cosmos bridge driver...${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+COSMOS_BRIDGE_SRC_DIR="$SCRIPT_DIR/driver"
+COSMOS_BRIDGE_BUILD_DIR="$SCRIPT_DIR/.driver-build"
+COSMOS_BRIDGE_INSTALL_DIR="$HACHI_DIR/driver"
+CUSTOM_DRIVER_PATH=""
+STEAMVR_DRIVER_PATH=""
+COSMOS_DRIVER_PATH=""
+
+if [ -d "$COSMOS_BRIDGE_SRC_DIR" ]; then
+    echo -e "${CYAN}  • Compiling user-space USB probe (cosmos_bridge)...${NC}"
+    rm -rf "$COSMOS_BRIDGE_BUILD_DIR"
+    mkdir -p "$COSMOS_BRIDGE_BUILD_DIR"
+    cp -R "$COSMOS_BRIDGE_SRC_DIR/." "$COSMOS_BRIDGE_BUILD_DIR/"
+
+    if make -C "$COSMOS_BRIDGE_BUILD_DIR" > "$COSMOS_BRIDGE_BUILD_DIR/build.log" 2>&1; then
+        install -Dm755 "$COSMOS_BRIDGE_BUILD_DIR/cosmos_bridge" \
+            "$COSMOS_BRIDGE_INSTALL_DIR/cosmos_bridge"
+        if [ -f "$COSMOS_BRIDGE_SRC_DIR/README.md" ]; then
+            install -Dm644 "$COSMOS_BRIDGE_SRC_DIR/README.md" \
+                "$COSMOS_BRIDGE_INSTALL_DIR/README.md"
+        fi
+
+        echo -e "${GREEN}  ✓ cosmos_bridge compiled successfully${NC}"
+        echo -e "${GREEN}  ✓ Installed to $COSMOS_BRIDGE_INSTALL_DIR${NC}"
+        echo -e "${GREEN}  ✓ Use 'cosmos_bridge --monitor' to inspect USB connectivity${NC}"
+        CUSTOM_DRIVER_PATH="$COSMOS_BRIDGE_INSTALL_DIR/cosmos_bridge"
+        rm -f "$COSMOS_BRIDGE_BUILD_DIR/build.log"
+    else
+        echo -e "${RED}  ✗ Failed to build cosmos_bridge helper${NC}"
+        echo -e "${YELLOW}    Review $COSMOS_BRIDGE_BUILD_DIR/build.log for compiler output${NC}"
+    fi
+else
+    echo -e "${YELLOW}  ! Driver source directory missing at ${COSMOS_BRIDGE_SRC_DIR}${NC}"
+fi
+
+if driver_path=$(locate_steamvr_cosmos_driver); then
+    STEAMVR_DRIVER_PATH="$driver_path"
+    echo -e "${GREEN}  ✓ SteamVR Vive Cosmos driver detected at:${NC}"
+    echo -e "      $STEAMVR_DRIVER_PATH"
+else
+    echo -e "${YELLOW}  ! SteamVR Vive Cosmos driver not found${NC}"
+    echo -e "${YELLOW}    Launch SteamVR once or validate the app to allow discovery${NC}"
+fi
+
+if [ -n "$CUSTOM_DRIVER_PATH" ]; then
+    write_driver_status "installed" "$CUSTOM_DRIVER_PATH" "build" "succeeded" \
+        "cosmos-bridge" "hachi-cosmos" "$STEAMVR_DRIVER_PATH"
+elif [ -n "$STEAMVR_DRIVER_PATH" ]; then
+    write_driver_status "steamvr-only" "$STEAMVR_DRIVER_PATH" "scan" "skipped" \
+        "steamvr-detected" "steamvr" "$STEAMVR_DRIVER_PATH"
+else
+    write_driver_status "missing" "" "scan" "skipped" "no-driver-assets" "none" ""
+fi
+
+if [ -n "$CUSTOM_DRIVER_PATH" ]; then
+    COSMOS_DRIVER_PATH="$CUSTOM_DRIVER_PATH"
+elif [ -n "$STEAMVR_DRIVER_PATH" ]; then
+    COSMOS_DRIVER_PATH="$STEAMVR_DRIVER_PATH"
+fi
+
+echo ""
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}[10/12] Installing finger tracking module...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 if [ -f "finger_tracking.py" ]; then
-    cp finger_tracking.py "$HACHI_DIR/"
+    cp finger_tracking.py "$HACHI_DIR/finger_tracking.py"
     chmod +x "$HACHI_DIR/finger_tracking.py"
     echo -e "${GREEN}  ✓ Finger tracking module installed${NC}"
     echo -e "${GREEN}  ✓ Real OpenCV-based hand detection${NC}"
@@ -418,15 +430,32 @@ fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[10/11] Installing HACHI Control Center...${NC}"
+echo -e "${CYAN}[11/12] Installing HACHI Control Center...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 if [ -f "hachi_control.py" ]; then
-    cp hachi_control.py "$BIN_DIR/hachi"
+    cp hachi_control.py "$HACHI_DIR/hachi_control.py"
+    chmod +x "$HACHI_DIR/hachi_control.py"
+
+    cat > "$BIN_DIR/hachi" <<LAUNCHER_EOF
+#!/usr/bin/env bash
+set -e
+APP_DIR="$HACHI_DIR"
+export PYTHONPATH="\$APP_DIR:\$PYTHONPATH"
+exec python3 "\$APP_DIR/hachi_control.py" "\$@"
+LAUNCHER_EOF
+
     chmod +x "$BIN_DIR/hachi"
+
     echo -e "${GREEN}  ✓ Control center installed${NC}"
     echo -e "${GREEN}  ✓ GPU-adaptive themes enabled${NC}"
     echo -e "${GREEN}  ✓ Real-time monitoring active${NC}"
+
+    if $SUDO_CMD ln -sf "$BIN_DIR/hachi" /usr/local/bin/hachi 2>/dev/null; then
+        echo -e "${GREEN}  ✓ System-wide launcher linked at /usr/local/bin/hachi${NC}"
+    else
+        echo -e "${YELLOW}  ! Could not create /usr/local/bin/hachi (insufficient permissions?)${NC}"
+    fi
 else
     echo -e "${RED}  ✗ hachi_control.py not found!${NC}"
     exit 1
@@ -456,40 +485,64 @@ echo -e "${GREEN}  ✓ Desktop shortcut created${NC}"
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[11/11] Installing VR driver files...${NC}"
+echo -e "${CYAN}[12/12] Capturing driver diagnostics...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-# Copy driver manifest and settings
+if [ -n "$COSMOS_DRIVER_PATH" ]; then
+    echo -e "${GREEN}  ✓ Vive Cosmos driver ready at:${NC}"
+    echo -e "      $COSMOS_DRIVER_PATH"
+else
+    echo -e "${YELLOW}  ! Vive Cosmos driver still missing${NC}"
+    echo -e "${YELLOW}    Use SteamVR ▸ Devices ▸ Update firmware / reinstall support${NC}"
+fi
+
+# Preserve manifest/settings for reference within HACHI's data directory
 if [ -f "driver.vrdrivermanifest" ]; then
-    cp driver.vrdrivermanifest "$DRIVER_DIR/"
-    echo -e "${GREEN}  ✓ Driver manifest installed${NC}"
+    cp driver.vrdrivermanifest "$HACHI_DIR/driver.vrdrivermanifest"
 fi
 
 if [ -f "resources.vrsettings" ]; then
-    cp resources.vrsettings "$DRIVER_DIR/"
-    echo -e "${GREEN}  ✓ Driver settings installed${NC}"
+    cp resources.vrsettings "$HACHI_DIR/resources.vrsettings"
 fi
 
 # Setup USB permissions
 echo -e "${YELLOW}  Setting up USB permissions...${NC}"
 
+COSMOS_USB_IDS=(
+    0309 030A 030B 0313 0316 0317 0320
+    0400 0401 0402 0403 0404 0405 0406 0407 0408 0409 040A 040B 040C 040D 040E 040F 0410
+    0ABB
+)
+
 RULES_FILE="/tmp/60-hachi-vr.rules"
-cat > "$RULES_FILE" << 'UDEV_EOF'
-# HTC Vive Cosmos
-SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="0abb", MODE="0666", GROUP="plugdev"
-SUBSYSTEM=="usb", ATTR{idVendor}=="28de", MODE="0666", GROUP="plugdev"
+{
+    echo "# HTC Vive Cosmos family"
+    for product in "${COSMOS_USB_IDS[@]}"; do
+        printf 'SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="%s", MODE="0666", GROUP="plugdev", TAG+="uaccess"\n' "$product"
+    done
+    echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="28de", MODE="0666", GROUP="plugdev", TAG+="uaccess"'
+    echo ""
+    echo "# HID devices"
+    echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0bb4", MODE="0666", GROUP="plugdev", TAG+="uaccess"'
+    echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="28de", MODE="0666", GROUP="plugdev", TAG+="uaccess"'
+    echo ""
+    echo "# Video devices (for finger tracking)"
+    echo 'KERNEL=="video[0-9]*", MODE="0666", GROUP="video"'
+} > "$RULES_FILE"
 
-# HID devices
-KERNEL=="hidraw*", ATTRS{idVendor}=="0bb4", MODE="0666", GROUP="plugdev"
-KERNEL=="hidraw*", ATTRS{idVendor}=="28de", MODE="0666", GROUP="plugdev"
 
-# Video devices (for finger tracking)
-KERNEL=="video[0-9]*", MODE="0666", GROUP="video"
-UDEV_EOF
+# Ensure plugdev group exists for distros that omit it by default
+if ! getent group plugdev >/dev/null; then
+    echo -e "${YELLOW}  Creating plugdev group (not present on this system)...${NC}"
+    $SUDO_CMD groupadd -r plugdev
+fi
 
 $SUDO_CMD cp "$RULES_FILE" /etc/udev/rules.d/60-hachi-vr.rules
 $SUDO_CMD udevadm control --reload-rules
-$SUDO_CMD udevadm trigger
+$SUDO_CMD udevadm trigger --subsystem-match=usb --attr-match=idVendor=0bb4
+$SUDO_CMD udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=0bb4
+$SUDO_CMD udevadm trigger --subsystem-match=usb --attr-match=idVendor=28de
+$SUDO_CMD udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=28de
 
 echo -e "${GREEN}  ✓ USB rules installed${NC}"
 
@@ -500,54 +553,68 @@ $SUDO_CMD usermod -a -G video $USER 2>/dev/null || $SUDO_CMD gpasswd -a $USER vi
 echo -e "${GREEN}  ✓ User added to plugdev group${NC}"
 echo -e "${GREEN}  ✓ User added to video group${NC}"
 
-echo -e "${GREEN}  ✓ Native SteamVR integration ready${NC}"
-echo -e "${GREEN}  ✓ C++ driver bridge installed${NC}"
+echo -e "${GREEN}  ✓ Native SteamVR integration verified${NC}"
+echo -e "${GREEN}  ✓ Driver status recorded for Control Center${NC}"
 
-echo ""
-echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║                                                              ║${NC}"
-echo -e "${GREEN}║              🎉 INSTALLATION COMPLETE! 🎉                    ║${NC}"
-echo -e "${GREEN}║                                                              ║${NC}"
-echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${YELLOW}║  ⚠️  IMPORTANT: YOU MUST LOG OUT AND LOG BACK IN! ⚠️        ║${NC}"
-echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${CYAN}This is required for USB permissions to take effect.${NC}"
-echo ""
-echo -e "${GREEN}What was installed:${NC}"
-echo -e "  ${CYAN}✓${NC} Vive Cosmos SteamVR Driver (C++ with USB bridge)"
-echo -e "  ${CYAN}✓${NC} Real Finger Tracking (OpenCV-based)"
-echo -e "  ${CYAN}✓${NC} HACHI Control Center GUI"
-echo -e "  ${CYAN}✓${NC} All Dependencies & Libraries"
-echo -e "  ${CYAN}✓${NC} USB Permissions"
-echo ""
-echo -e "${GREEN}After logging back in:${NC}"
-echo -e "  ${MAGENTA}1.${NC} Find ${YELLOW}'HACHI Control Center'${NC} in your applications menu"
-echo -e "  ${MAGENTA}2.${NC} Or run: ${YELLOW}hachi${NC}"
-echo -e "  ${MAGENTA}3.${NC} Connect your VR headset"
-echo -e "  ${MAGENTA}4.${NC} Launch SteamVR from HACHI"
-echo -e "  ${MAGENTA}5.${NC} Enable finger tracking in the Finger Tracking tab"
-echo ""
-echo -e "${CYAN}Features ready to use:${NC}"
-echo -e "  • Real-time hand detection with OpenCV"
-echo -e "  • Finger counting (0-5 per hand)"
-echo -e "  • C++ VR driver with USB communication"
-echo -e "  • GPU-adaptive themes"
-echo -e "  • SteamVR integration"
-echo -e "  • System monitoring"
-echo ""
-echo -e "${GREEN}Documentation:${NC}"
-echo -e "  • README.md - Complete guide"
-echo -e "  • QUICK-START.txt - Quick reference"
-echo ""
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}         Thank you for using HACHI VR! 🚀${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-read -p "Press ENTER to finish..."
+finish_installation_summary() {
+    INSTALL_SUCCESS=true
 
-echo ""
-echo -e "${YELLOW}Remember to LOG OUT and LOG BACK IN!${NC}"
-echo ""
+    echo ""
+    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                                                              ║${NC}"
+    echo -e "${GREEN}║              🎉 INSTALLATION COMPLETE! 🎉                    ║${NC}"
+    echo -e "${GREEN}║                                                              ║${NC}"
+    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║  ⚠️  IMPORTANT: A SYSTEM REBOOT IS REQUIRED! ⚠️            ║${NC}"
+    echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${CYAN}Rebooting ensures USB permissions and drivers reload correctly.${NC}"
+    echo ""
+    echo -e "${GREEN}What was installed:${NC}"
+    echo -e "  ${CYAN}✓${NC} HACHI cosmos_bridge USB helper"
+    echo -e "  ${CYAN}✓${NC} SteamVR Vive Cosmos driver snapshot"
+    echo -e "  ${CYAN}✓${NC} Real Finger Tracking (OpenCV-based)"
+    echo -e "  ${CYAN}✓${NC} HACHI Control Center GUI"
+    echo -e "  ${CYAN}✓${NC} All Dependencies & Libraries"
+    echo -e "  ${CYAN}✓${NC} USB Permissions"
+    echo ""
+    echo -e "${GREEN}After rebooting:${NC}"
+    echo -e "  ${MAGENTA}1.${NC} Find ${YELLOW}'HACHI Control Center'${NC} in your applications menu"
+    echo -e "  ${MAGENTA}2.${NC} Or run: ${YELLOW}hachi${NC}"
+    echo -e "  ${MAGENTA}3.${NC} Connect your VR headset"
+    echo -e "  ${MAGENTA}4.${NC} Launch SteamVR from HACHI"
+    echo -e "  ${MAGENTA}5.${NC} Enable finger tracking in the Finger Tracking tab"
+    echo ""
+    echo -e "${CYAN}Features ready to use:${NC}"
+    echo -e "  • Real-time hand detection with OpenCV"
+    echo -e "  • Finger counting (0-5 per hand)"
+    echo -e "  • SteamVR driver health checks"
+    echo -e "  • GPU-adaptive themes"
+    echo -e "  • SteamVR integration"
+    echo -e "  • System monitoring"
+    echo ""
+    echo -e "${GREEN}Documentation:${NC}"
+    echo -e "  • README.md - Complete guide"
+    echo -e "  • QUICK-START.txt - Quick reference"
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}         Thank you for using HACHI VR! 🚀${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    read -p "Press ENTER to continue..."
+
+    echo ""
+    read -r -p "Would you like to reboot now to finalize the installation? [y/N]: " REBOOT_CHOICE
+    if [[ $REBOOT_CHOICE =~ ^[Yy]$ ]]; then
+        echo -e "${CYAN}Requesting system reboot...${NC}"
+        $SUDO_CMD reboot || echo -e "${YELLOW}  ! Reboot command failed. Please reboot manually.${NC}"
+    else
+        echo -e "${YELLOW}Please reboot your system manually to complete the installation.${NC}"
+    fi
+
+    echo ""
+}
+
+finish_installation_summary

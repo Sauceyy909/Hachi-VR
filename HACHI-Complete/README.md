@@ -37,13 +37,20 @@ chmod +x HACHI-INSTALLER.sh
 
 ## ✨ What Gets Installed
 
-### 1. **Vive Cosmos SteamVR Driver**
-- ✅ Native OpenVR implementation
-- ✅ Direct SteamVR integration
-- ✅ No Monado dependencies
-- ✅ Actually hands off to SteamVR (fixed your original issue!)
+### 1. **HACHI Cosmos Bridge Helper**
+- ✅ Compiles a local `cosmos_bridge` USB probe against libusb
+- ✅ Installs the helper to `~/.local/share/hachi/driver/cosmos_bridge`
+- ✅ Surfaces probe results (USB IDs, bus, access errors) directly in the Control Center
+- ✅ Recognises additional Vive Cosmos USB IDs (including new link-box variants)
+- ⚠️ Does not replace Valve's runtime driver—SteamVR is still required for headset streaming
 
-### 2. **Real Finger Tracking System**
+### 2. **SteamVR Driver Snapshot**
+- ✅ Detects the official SteamVR Vive Cosmos driver on disk when present
+- ✅ Records diagnostics in `~/.local/share/hachi/driver_status.json`
+- ✅ Stores both the locally built helper path and the SteamVR driver path (if found)
+- ⚠️ Prompts you to launch or validate SteamVR if the driver is not yet deployed
+
+### 3. **Real Finger Tracking System**
 - ✅ OpenCV-based hand detection
 - ✅ Real-time finger counting (0-5 per hand)
 - ✅ Both left and right hand tracking
@@ -52,17 +59,21 @@ chmod +x HACHI-INSTALLER.sh
 - ✅ Visual test mode with camera preview
 - ✅ Actually works - not a "coming soon" feature!
 
-### 3. **HACHI Control Center**
+### 4. **HACHI Control Center**
 - ✅ Beautiful GPU-adaptive UI (NVIDIA green, AMD red, Intel blue)
+- ✅ Triple-black visual design inspired by the NVIDIA Control Panel
+- ✅ Displays the exact detected GPU model right in the header
 - ✅ Real-time VR headset detection
+- ✅ Dedicated DisplayPort/HDMI status indicator so you know the display cable is live
 - ✅ Driver status monitoring
 - ✅ SteamVR launch integration
 - ✅ Finger tracking controls (start/stop/calibrate/test)
 - ✅ Live hand detection display
 - ✅ Settings management
 - ✅ Log viewing
+- ✅ Installed to `~/.local/share/hachi` with a wrapper script in `~/.local/bin/hachi`
 
-### 4. **All Dependencies**
+### 5. **All Dependencies**
 - ✅ Python packages (OpenCV, NumPy, etc.)
 - ✅ System libraries (USB, HID, etc.)
 - ✅ Camera support (V4L)
@@ -74,26 +85,32 @@ chmod +x HACHI-INSTALLER.sh
 ```
 HACHI-Complete/
 ├── HACHI-INSTALLER.sh      ← Run this! (Self-contained installer)
+├── driver/                 ← Source for the cosmos_bridge USB helper
 ├── finger_tracking.py       ← Real finger tracking module
 ├── hachi_control.py         ← Full control center GUI
 ├── hachi_installer.py       ← GUI installer (optional)
 └── README.md               ← This file
 ```
 
+> ℹ️ The `driver/` directory ships a small `cosmos_bridge` helper that the installer compiles automatically. SteamVR still
+> provides the actual runtime driver, but the helper gives you visibility into USB connectivity and permission issues.
+
 ## 🎮 Installation Process
 
 The installer automatically does:
 
 1. ✅ Checks your system
-2. ✅ Installs system packages (apt-get)
+2. ✅ Installs system packages (pacman/apt)
 3. ✅ Installs Python packages (pip)
-4. ✅ Creates directory structure
-5. ✅ Installs finger tracking module
-6. ✅ Installs control center
-7. ✅ Installs VR driver
-8. ✅ Configures USB permissions
-9. ✅ Creates desktop shortcut
-10. ✅ Sets up everything perfectly!
+4. ✅ Removes any previous HACHI installation automatically (user and system locations)
+5. ✅ Creates a fresh directory structure in `~/.local/share/hachi` and `~/.local/bin`
+6. ✅ Builds the `cosmos_bridge` USB helper and places it in `~/.local/share/hachi/driver`
+7. ✅ Scans for Valve's SteamVR Vive Cosmos driver and records its path when found
+8. ✅ Installs the finger tracking module
+9. ✅ Installs the HACHI Control Center launcher script and links `/usr/local/bin/hachi`
+10. ✅ Adds shortcuts and updates your PATH
+11. ✅ Captures driver manifests/settings for diagnostics (without touching SteamVR files)
+12. ✅ Configures USB permissions, updates user groups, and prompts for a reboot
 
 **Time:** 5-10 minutes  
 **User input required:** Your password (for sudo)
@@ -110,7 +127,7 @@ The installer automatically does:
 
 ### Launching HACHI
 
-After logging out and back in:
+After rebooting:
 
 ```bash
 # Method 1: From applications menu
@@ -118,6 +135,9 @@ Click "HACHI Control Center"
 
 # Method 2: From terminal
 hachi
+
+# Method 3: Run the GUI directly
+python3 ~/.local/share/hachi/hachi_control.py
 ```
 
 ### Using Finger Tracking
@@ -158,6 +178,18 @@ lsusb | grep -i htc
 # Should show: Bus XXX Device XXX: ID 0bb4:0abb HTC (...)
 ```
 
+### Display Cable Still Shows "Not Detected"?
+```bash
+# Check kernel DRM connector status
+grep . /sys/class/drm/card*-DP-*/status /sys/class/drm/card*-HDMI-*/status 2>/dev/null
+
+# If nothing prints, fall back to xrandr
+xrandr --query | grep -E "connected|HTC|VIVE"
+
+# Make sure the headset's DisplayPort/USB-C cable is firmly connected to the GPU
+# and that the GPU output is active (duplicate or extend your desktop if needed).
+```
+
 ### Finger Tracking Not Starting?
 ```bash
 # Check camera
@@ -174,6 +206,20 @@ python3 ~/.local/share/hachi/finger_tracking.py
 groups
 
 # Should include "plugdev"
+```
+
+### SteamVR driver still missing?
+```bash
+# Launch SteamVR once so Valve can deploy its drivers
+steam steam://rungameid/250820
+
+# Optional: validate files with steamcmd if you prefer the CLI
+sudo apt install steamcmd      # Debian/Ubuntu
+sudo pacman -S steamcmd        # Arch / Manjaro
+steamcmd +login anonymous +app_update 250820 validate +quit
+
+# Re-run ./HACHI-INSTALLER.sh to refresh the status snapshot afterwards
+./HACHI-INSTALLER.sh
 ```
 
 ## 🎨 Features Overview
@@ -261,6 +307,20 @@ If installation fails:
 4. Check the error message in the installer
 
 ### Runtime Issues
+
+#### Headset not detected / permission denied
+
+If the Control Center shows **"USB permissions blocked"** or the `cosmos_bridge` helper exits with code `3`, reload the new udev rules and retrigger the HTC/Valve devices:
+
+```bash
+sudo udevadm control --reload-rules
+sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=0bb4
+sudo udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=0bb4
+sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=28de
+sudo udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=28de
+```
+
+The installer now drops `/etc/udev/rules.d/60-hachi-vr.rules` with **all known Vive Cosmos USB IDs (0x0300-0x0410 range, including 0x0313)** and creates the `plugdev` group when missing, so re-running `./INSTALL`, rebooting after the reload, or simply unplugging/replugging the headset should clear the permission error without manual edits.
 
 Check logs:
 ```bash
