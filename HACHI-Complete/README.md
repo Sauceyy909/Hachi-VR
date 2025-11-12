@@ -84,6 +84,9 @@ HACHI-Complete/
 └── README.md               ← This file
 ```
 
+> ℹ️ The repository also includes a `build/` directory with experimental CMake sources for a custom driver. The installer
+> skips compiling those files and instead validates that Valve's SteamVR Vive Cosmos driver is present on your system.
+
 ## 🎮 Installation Process
 
 The installer automatically does:
@@ -93,7 +96,7 @@ The installer automatically does:
 3. ✅ Installs Python packages (pip)
 4. ✅ Removes any previous HACHI installation automatically (user and system locations)
 5. ✅ Creates a fresh directory structure in `~/.local/share/hachi` and `~/.local/bin`
-6. ✅ Verifies the SteamVR Vive Cosmos driver and triggers an automatic repair via `steamcmd` when it is missing
+6. ✅ Validates the SteamVR-supplied Vive Cosmos driver (no local source build required) and triggers an automatic `steamcmd` repair when it is missing
 7. ✅ Installs the finger tracking module
 8. ✅ Installs the HACHI Control Center launcher script and links `/usr/local/bin/hachi`
 9. ✅ Adds shortcuts and updates your PATH

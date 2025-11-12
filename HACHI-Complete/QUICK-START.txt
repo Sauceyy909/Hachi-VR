@@ -93,6 +93,7 @@ VR DRIVER:
   • Verifies SteamVR's Vive Cosmos driver is installed
   • Records diagnostics for the Control Center dashboard
   • Leaves Valve's binaries untouched (no custom forks)
+  • Skips compiling the experimental sources in ./build (they're included for reference only)
   • Automatically runs a steamcmd validation when the driver is missing (and reports if steamcmd is unavailable)
   • Warns you to reinstall or launch SteamVR if anything is missing after repair
   • Installs USB permissions so the official driver can talk to the headset
@@ -132,11 +133,11 @@ The installer automatically:
   3. Installs Python packages (numpy, opencv-contrib, etc.)
   4. Removes any previous HACHI install (user and system locations)
   5. Creates directory structure in ~/.local/share/hachi and ~/.local/bin
-  6. Installs finger tracking module
-  7. Installs the control center launcher and links /usr/local/bin/hachi
-  8. Verifies SteamVR's Vive Cosmos driver, runs steamcmd validation if it's missing, and logs diagnostics
-  9. Configures USB permissions
-  10. Creates desktop shortcut
+  6. Validates the SteamVR-supplied Vive Cosmos driver (skips local source builds) and runs steamcmd repair when needed
+  7. Installs finger tracking module
+  8. Installs the control center launcher, links /usr/local/bin/hachi, and creates the desktop shortcut
+  9. Captures diagnostics and driver manifests for the Control Center
+  10. Configures USB permissions
   11. Prompts for reboot so everything reloads cleanly
 
 Time: 5-10 minutes

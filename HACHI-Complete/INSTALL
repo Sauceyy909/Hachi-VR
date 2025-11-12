@@ -379,8 +379,16 @@ echo -e "${GREEN}  ✓ Created: $BIN_DIR${NC}"
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}[9/12] Checking SteamVR Vive Cosmos driver...${NC}"
+echo -e "${CYAN}[9/12] Preparing Vive Cosmos driver assets...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+echo -e "${CYAN}  • Relying on Valve's SteamVR distribution of the Vive Cosmos driver${NC}"
+if [ -d "$SCRIPT_DIR/build" ]; then
+    echo -e "${CYAN}  • Local source tree detected in ${SCRIPT_DIR}/build (optional reference only)${NC}"
+    echo -e "${CYAN}    Skipping compilation; the official SteamVR driver will be validated instead${NC}"
+else
+    echo -e "${CYAN}  • No local driver build artifacts bundled with this installer${NC}"
+fi
 
 COSMOS_DRIVER_PATH=""
 STEAMVR_ROOT=""

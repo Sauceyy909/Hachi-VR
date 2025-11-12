@@ -488,11 +488,30 @@ class HachiControl(tk.Tk):
 
         tk.Label(
             driver_frame,
-            text="Installer Check:",
+            text="Driver Source:",
             bg=self.surface_bg,
             fg=self.text_primary,
             font=('Segoe UI', 11)
         ).grid(row=1, column=0, sticky=tk.W, pady=5)
+
+        self.driver_source_var = tk.StringVar(value="SteamVR (Valve official distribution)")
+        tk.Label(
+            driver_frame,
+            textvariable=self.driver_source_var,
+            bg=self.surface_bg,
+            fg=self.text_secondary,
+            font=('Segoe UI', 10),
+            wraplength=380,
+            justify=tk.LEFT
+        ).grid(row=1, column=1, sticky=tk.W, padx=10, pady=5)
+
+        tk.Label(
+            driver_frame,
+            text="Installer Check:",
+            bg=self.surface_bg,
+            fg=self.text_primary,
+            font=('Segoe UI', 11)
+        ).grid(row=2, column=0, sticky=tk.W, pady=5)
 
         self.driver_check_var = tk.StringVar(value="Waiting for installer…")
         tk.Label(
@@ -503,7 +522,7 @@ class HachiControl(tk.Tk):
             font=('Segoe UI', 10),
             wraplength=380,
             justify=tk.LEFT
-        ).grid(row=1, column=1, sticky=tk.W, padx=10, pady=5)
+        ).grid(row=2, column=1, sticky=tk.W, padx=10, pady=5)
 
         # Tracking settings
         if FINGER_TRACKING_AVAILABLE:
@@ -1040,10 +1059,13 @@ echo "Run: hachi"
 
         if self.cosmos_driver_path:
             driver_display = str(self.cosmos_driver_path)
+            driver_source_text = "SteamVR (Valve official distribution)"
         else:
             driver_display = "Not found"
+            driver_source_text = "SteamVR driver not detected"
 
         info.append(f"Driver Path: {driver_display}")
+        info.append(f"Driver Source: {driver_source_text}")
 
         installer_summary = self.format_installer_status(self.installer_driver_status)
         if installer_summary:
@@ -1070,6 +1092,9 @@ echo "Run: hachi"
 
         if hasattr(self, 'driver_path_var') and self.driver_path_var is not None:
             self.driver_path_var.set(driver_display)
+
+        if hasattr(self, 'driver_source_var') and self.driver_source_var is not None:
+            self.driver_source_var.set(driver_source_text)
 
         if hasattr(self, 'driver_check_var') and self.driver_check_var is not None:
             installer_summary = self.format_installer_status(self.installer_driver_status)
