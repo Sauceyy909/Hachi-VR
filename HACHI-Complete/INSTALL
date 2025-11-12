@@ -518,21 +518,31 @@ RULES_FILE="/tmp/60-hachi-vr.rules"
 {
     echo "# HTC Vive Cosmos family"
     for product in "${COSMOS_USB_IDS[@]}"; do
-        printf 'SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="%s", MODE="0666", GROUP="plugdev"\n' "$product"
+        printf 'SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="%s", MODE="0666", GROUP="plugdev", TAG+="uaccess"\n' "$product"
     done
-    echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="28de", MODE="0666", GROUP="plugdev"'
+    echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="28de", MODE="0666", GROUP="plugdev", TAG+="uaccess"'
     echo ""
     echo "# HID devices"
-    echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0bb4", MODE="0666", GROUP="plugdev"'
-    echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="28de", MODE="0666", GROUP="plugdev"'
+    echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0bb4", MODE="0666", GROUP="plugdev", TAG+="uaccess"'
+    echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="28de", MODE="0666", GROUP="plugdev", TAG+="uaccess"'
     echo ""
     echo "# Video devices (for finger tracking)"
     echo 'KERNEL=="video[0-9]*", MODE="0666", GROUP="video"'
 } > "$RULES_FILE"
 
+
+# Ensure plugdev group exists for distros that omit it by default
+if ! getent group plugdev >/dev/null; then
+    echo -e "${YELLOW}  Creating plugdev group (not present on this system)...${NC}"
+    $SUDO_CMD groupadd -r plugdev
+fi
+
 $SUDO_CMD cp "$RULES_FILE" /etc/udev/rules.d/60-hachi-vr.rules
 $SUDO_CMD udevadm control --reload-rules
-$SUDO_CMD udevadm trigger
+$SUDO_CMD udevadm trigger --subsystem-match=usb --attr-match=idVendor=0bb4
+$SUDO_CMD udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=0bb4
+$SUDO_CMD udevadm trigger --subsystem-match=usb --attr-match=idVendor=28de
+$SUDO_CMD udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=28de
 
 echo -e "${GREEN}  ✓ USB rules installed${NC}"
 

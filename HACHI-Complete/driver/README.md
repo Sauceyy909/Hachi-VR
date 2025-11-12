@@ -34,8 +34,18 @@ libusb dependencies) and places the binary under
 `~/.local/share/hachi/driver/cosmos_bridge` alongside this README. It also
 installs `/etc/udev/rules.d/60-hachi-vr.rules` covering **every Vive Cosmos
 USB identifier we have seen (0x0300–0x0410 plus HTC's legacy 0x0ABB link box)**,
-so reconnecting the headset—or simply rebooting after installation—grants the
-helper access without manual rule tweaking.
+creates the `plugdev` group when missing, and retriggers the USB stack so the
+helper gains access immediately. If a session still reports permission issues,
+reload the rule manually:
+
+```
+sudo udevadm control --reload-rules
+sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=0bb4
+sudo udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=0bb4
+```
+
+Unplugging/replugging the headset or re-running the installer will apply the
+same fix.
 
 ## SteamVR Integration
 

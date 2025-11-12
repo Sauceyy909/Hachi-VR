@@ -212,7 +212,7 @@ ProbeResult probe_headset(libusb_context* ctx, bool attempt_open) {
                 result.permission_denied = true;
                 result.message =
                     "Headset detected, but USB permissions blocked access. "
-                    "Reload /etc/udev/rules.d/60-hachi-vr.rules or run the installer again.";
+                    "Reload the rule (sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=0bb4) or rerun the installer.";
             } else if (open_status == LIBUSB_SUCCESS && handle != nullptr) {
                 unsigned char product[256];
                 if (desc.iProduct != 0) {
@@ -342,6 +342,8 @@ void render_human(const ProbeResult& probe) {
         }
         if (probe.permission_denied) {
             std::cout << "    Permission: denied (udev rule required)" << std::endl;
+            std::cout << "    Fix: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=0bb4"
+                      << std::endl;
         }
     }
 }

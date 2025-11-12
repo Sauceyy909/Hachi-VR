@@ -310,14 +310,17 @@ If installation fails:
 
 #### Headset not detected / permission denied
 
-If the Control Center shows **"USB permissions blocked"** or the `cosmos_bridge` helper exits with code `3`, reload the new udev rules:
+If the Control Center shows **"USB permissions blocked"** or the `cosmos_bridge` helper exits with code `3`, reload the new udev rules and retrigger the HTC/Valve devices:
 
 ```bash
 sudo udevadm control --reload-rules
-sudo udevadm trigger
+sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=0bb4
+sudo udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=0bb4
+sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=28de
+sudo udevadm trigger --subsystem-match=hidraw --attr-match=idVendor=28de
 ```
 
-The installer now drops `/etc/udev/rules.d/60-hachi-vr.rules` with **all known Vive Cosmos USB IDs (0x0300-0x0410 range, including 0x0313)** so re-running `./INSTALL` (or rebooting after the reload) clears the permission error without manual edits.
+The installer now drops `/etc/udev/rules.d/60-hachi-vr.rules` with **all known Vive Cosmos USB IDs (0x0300-0x0410 range, including 0x0313)** and creates the `plugdev` group when missing, so re-running `./INSTALL`, rebooting after the reload, or simply unplugging/replugging the headset should clear the permission error without manual edits.
 
 Check logs:
 ```bash
